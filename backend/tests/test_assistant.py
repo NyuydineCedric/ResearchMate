@@ -63,6 +63,60 @@ class AssistantApiTests(unittest.TestCase):
         conversation = result["conversation"]
         return conversation["id"]
 
+    def test_writing_assistant_returns_a_suggestion_using_supplied_draft_text(self) -> None:
+        source_text = "This sentence have a grammar error."
+        with patch.object(server, "gemini_answer", return_value="This sentence has a grammar error.") as generate:
+            status, result = self.request_json(
+                "/api/writing-assistant",
+                "POST",
+                {"action": "proofread", "sourceText": source_text},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(result, {
+            "action": "proofread",
+            "text": "This sentence has a grammar error.",
+        })
+        messages, context = generate.call_args.args
+        self.assertIn("Correct spelling, grammar, and punctuation", messages[0]["content"])
+        self.assertEqual(context["documentText"], source_text)
+
+    def test_writing_assistant_accepts_document_context_over_24000_characters(self) -> None:
+        source_text = "x" * 24_001
+        with patch.object(server, "gemini_answer", return_value="A longer-draft suggestion.") as generate:
+            status, result = self.request_json(
+                "/api/writing-assistant",
+                "POST",
+                {"action": "proofread", "sourceText": source_text},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(result["text"], "A longer-draft suggestion.")
+        self.assertEqual(generate.call_args.args[1]["documentText"], source_text)
+
+    def test_writing_assistant_reports_missing_gemini_key(self) -> None:
+        with patch.dict(os.environ, {"GEMINI_API_KEY": ""}):
+            status, result = self.request_json(
+                "/api/writing-assistant",
+                "POST",
+                {"action": "draft", "prompt": "Write an introduction about study habits."},
+            )
+
+        self.assertEqual(status, 503)
+        self.assertIn("GEMINI_API_KEY", result["error"])
+
+    def test_writing_assistant_rejects_oversized_document_context(self) -> None:
+        with patch.object(server, "gemini_answer") as generate:
+            status, result = self.request_json(
+                "/api/writing-assistant",
+                "POST",
+                {"action": "proofread", "sourceText": "x" * 900_001},
+            )
+
+        self.assertEqual(status, 400)
+        self.assertIn("900000", result["error"])
+        generate.assert_not_called()
+
     def test_missing_gemini_key_returns_configuration_error_without_saving_prompt(self) -> None:
         conversation_id = self.create_conversation()
         with patch.dict(os.environ, {"GEMINI_API_KEY": ""}):
@@ -256,7 +310,7 @@ class AssistantApiTests(unittest.TestCase):
         dataset = result["dataset"]
         self.assertEqual(dataset["rowCount"], 6)
         self.assertEqual(dataset["columnCount"], 2)
-        self.assertEqual(len(dataset["sampleRows"]), 5)
+        self.assertEqual(len(dataset["sampleRows"]), 6)
         self.assertEqual(dataset["duplicateRows"], 1)
         self.assertTrue(any("duplicate row" in item for item in dataset["qualityWarnings"]))
         self.assertTrue(any("score has 1 missing" in item for item in dataset["qualityWarnings"]))
@@ -268,6 +322,9 @@ class AssistantApiTests(unittest.TestCase):
         self.assertAlmostEqual(score["variance"], 1.7)
         self.assertAlmostEqual(score["standardDeviation"], 1.7**0.5)
         self.assertEqual(score["quartiles"], {"q1": 2.0, "q2": 3.0, "q3": 4.0})
+        self.assertEqual(sum(item["count"] for item in score["histogram"]), 5)
+        self.assertEqual(score["histogram"][0]["start"], score["min"])
+        self.assertEqual(score["histogram"][-1]["end"], score["max"])
 
         group = next(item for item in dataset["columnStats"] if item["name"] == "group")
         self.assertEqual(group["kind"], "categorical")

@@ -1,0 +1,10 @@
+import './style.css'
+
+export const assistantPage = (): string => `
+<section class="page-content secondary-page" id="assistant-page" hidden>
+  <div class="welcome-row"><div><p class="date-line">AI RESEARCH</p><h1>AI Research Assistant</h1><p class="page-subtitle">Ask research questions and continue saved conversations grounded in your workspace.</p></div></div>
+  <div class="assistant-layout">
+    <div class="content-card assistant-panel"><div class="assistant-header"><span class="section-kicker">GEMINI-POWERED</span><h2>Research assistant</h2></div><label for="assistant-conversations">Saved conversations</label><div class="assistant-conversation-controls"><select id="assistant-conversations"><option value="">New conversation</option></select><button class="button button-secondary" id="assistant-new-conversation" type="button">＋ New</button></div><label for="assistant-project">Use project context</label><select id="assistant-project"><option value="">Workspace documents only</option></select><label for="assistant-prompt">Your message</label><textarea id="assistant-prompt" rows="7" maxlength="4000" placeholder="Ask about methodology, your research question, statistical concepts, or your saved project..."></textarea><p class="assistant-disclosure">AI responses require a Gemini API key configured on the backend. Workspace notes and relevant dataset summaries are shared as context.</p><div class="assistant-actions"><button class="button button-primary" id="assistant-submit" type="button">Send to assistant</button><button class="button button-secondary" id="assistant-clear" type="button">Clear</button></div></div>
+    <div class="content-card assistant-panel"><div class="assistant-header"><span class="section-kicker">SAVED CHAT</span><h2>Conversation</h2></div><div id="assistant-output" class="assistant-output" aria-live="polite"><p class="empty-assistant">Start a conversation to get research guidance. Your messages are saved in this workspace.</p></div></div>
+  </div>
+</section>`

@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import base64
 import binascii
+import html
 import io
 import json
 import math
@@ -27,6 +28,8 @@ DB_PATH = Path(os.environ.get("ANALYZE_DB_PATH", ROOT / "analyze.db"))
 HOST = os.environ.get("ANALYZE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("ANALYZE_PORT", "8000"))
 MAX_BODY_BYTES = 2_000_000
+MAX_WRITING_BODY_BYTES = 4_000_000
+MAX_WRITING_TEXT_CHARS = 900_000
 MAX_CSV_BYTES = 800_000
 MAX_DATASET_ROWS = 10_000
 MAX_DATASET_COLUMNS = 100
@@ -335,6 +338,21 @@ def dataset_column_stats(
         }
         if numeric:
             ordered_numbers = sorted(numbers)
+            minimum = ordered_numbers[0]
+            maximum = ordered_numbers[-1]
+            bin_count = 1 if minimum == maximum else min(20, math.ceil(math.log2(len(ordered_numbers)) + 1))
+            bin_width = (maximum - minimum) / bin_count if bin_count > 1 else 0
+            histogram = [
+                {
+                    "start": minimum + index * bin_width if bin_count > 1 else minimum,
+                    "end": maximum if index == bin_count - 1 else minimum + (index + 1) * bin_width,
+                    "count": 0,
+                }
+                for index in range(bin_count)
+            ]
+            for number in numbers:
+                index = min(bin_count - 1, int((number - minimum) / bin_width)) if bin_width else 0
+                histogram[index]["count"] += 1
 
             def percentile(fraction: float) -> float:
                 position = (len(ordered_numbers) - 1) * fraction
@@ -352,8 +370,9 @@ def dataset_column_stats(
                 "median": statistics.median(numbers),
                 "standardDeviation": statistics.stdev(numbers) if len(numbers) > 1 else None,
                 "variance": statistics.variance(numbers) if len(numbers) > 1 else None,
-                "min": min(numbers),
-                "max": max(numbers),
+                "min": minimum,
+                "max": maximum,
+                "histogram": histogram,
                 "quartiles": {
                     "q1": percentile(0.25),
                     "q2": percentile(0.5),
@@ -457,7 +476,7 @@ def dataset_detail(dataset_id: int) -> dict[str, object] | None:
         "columnCount": len(columns),
         "columns": columns,
         "columnStats": dataset_column_stats(columns, rows),
-        "sampleRows": rows[:5],
+        "sampleRows": rows[:50],
         "duplicateRows": duplicate_rows,
         "qualityWarnings": quality_warnings,
     }
@@ -546,6 +565,16 @@ def questionnaire_responses(questionnaire_id: int) -> list[dict[str, object]] | 
     return [questionnaire_response_record(row) for row in rows]
 
 
+def document_plain_text(content: str) -> str:
+    rich_text_prefix = "researchmate-rich-text-v1\n"
+    if not content.startswith(rich_text_prefix):
+        return content
+    content = content[len(rich_text_prefix):]
+    content = re.sub(r"<br\s*/?>|</(?:div|p|h[1-6]|li|blockquote|pre)>", "\n", content, flags=re.IGNORECASE)
+    content = re.sub(r"<[^>]*>", " ", content)
+    return html.unescape(content)
+
+
 def research_context(question: str, project_id: int | None) -> dict[str, object]:
     with database() as connection:
         project = None
@@ -598,7 +627,8 @@ def research_context(question: str, project_id: int | None) -> dict[str, object]
     }
     ranked_documents: list[tuple[int, sqlite3.Row]] = []
     for document in document_rows:
-        words = set(re.findall(r"[A-Za-z0-9]{3,}", f"{document['title']} {document['content']}".lower()))
+        plain_content = document_plain_text(str(document["content"]))
+        words = set(re.findall(r"[A-Za-z0-9]{3,}", f"{document['title']} {plain_content}".lower()))
         score = len(terms & words)
         if score:
             ranked_documents.append((score, document))
@@ -606,7 +636,7 @@ def research_context(question: str, project_id: int | None) -> dict[str, object]
     sources = [
         {
             "title": document["title"],
-            "excerpt": re.sub(r"\s+", " ", document["content"]).strip()[:320],
+            "excerpt": re.sub(r"\s+", " ", document_plain_text(str(document["content"]))).strip()[:320],
         }
         for _, document in ranked_documents[:3]
     ]
@@ -997,12 +1027,12 @@ class ResearchMateHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content)
 
-    def read_json(self) -> dict[str, object]:
+    def read_json(self, max_bytes: int = MAX_BODY_BYTES) -> dict[str, object]:
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError as error:
             raise RequestError("Invalid Content-Length header.") from error
-        if length < 0 or length > MAX_BODY_BYTES:
+        if length < 0 or length > max_bytes:
             raise RequestError("Request body is too large.", 413)
         try:
             payload = json.loads(self.rfile.read(length))
@@ -1082,8 +1112,44 @@ class ResearchMateHandler(BaseHTTPRequestHandler):
             self.send_json({"error": "Not found."}, 404)
 
     def handle_post(self, path: str) -> None:
-        payload = self.read_json()
+        payload = self.read_json(
+            MAX_WRITING_BODY_BYTES if path == "/api/writing-assistant" else MAX_BODY_BYTES
+        )
         now = utc_now()
+
+        if path == "/api/writing-assistant":
+            action = self.validate_text(payload, "action", required=True, max_length=30)
+            instructions = {
+                "draft": "Draft original academic text that addresses the student's prompt.",
+                "continue": "Continue the supplied text in a coherent way and preserve its style.",
+                "improve": "Revise the supplied text for clarity, flow, and organization while preserving its meaning.",
+                "proofread": "Correct spelling, grammar, and punctuation with minimal changes.",
+                "academic-tone": "Revise the supplied text into a clear, measured academic tone while preserving its meaning.",
+                "outline": "Create a structured outline that responds to the student's prompt.",
+                "brainstorm": "Suggest useful angles and ideas for the student's writing prompt.",
+                "summarize": "Summarize the supplied text accurately without adding claims."
+            }
+            if action not in instructions:
+                raise RequestError("action must be a supported writing-assistant mode.")
+            prompt = self.validate_text(payload, "prompt", max_length=MAX_WRITING_TEXT_CHARS)
+            source_text = self.validate_text(payload, "sourceText", max_length=MAX_WRITING_TEXT_CHARS)
+            if action in {"draft", "outline", "brainstorm"} and not prompt:
+                raise RequestError("prompt is required for this writing-assistant mode.")
+            if action in {"continue", "improve", "proofread", "academic-tone", "summarize"} and not source_text:
+                raise RequestError("Select text or add document content for this writing-assistant mode.")
+
+            request_prompt = (
+                f"Writing task: {instructions[action]}\n"
+                f"Student's instructions: {prompt or 'Apply the requested writing task to the supplied text.'}\n"
+                "Return only the requested draft or revised text. Do not add a preamble, claim unsupported facts, "
+                "or invent citations, sources, or research results. Preserve citations already present in the text."
+            )
+            suggestion = gemini_answer(
+                [{"role": "user", "content": request_prompt}],
+                {"documentText": source_text},
+            )
+            self.send_json({"action": action, "text": suggestion})
+            return
 
         if path == "/api/questionnaires/generate":
             topic = self.validate_text(payload, "topic", required=True, max_length=1500)

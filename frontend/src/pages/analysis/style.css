@@ -1,0 +1,355 @@
+#analysis-page .dataset-analysis {
+  min-width: 0;
+}
+
+.analysis-dataset-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px 16px;
+  padding: 2px 0 12px;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.analysis-dataset-meta strong {
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.analysis-header {
+  margin-bottom: 20px;
+}
+
+.analysis-header h1 {
+  margin-bottom: 0;
+}
+
+.analysis-toolbar {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.analysis-toolbar label {
+  width: min(460px, 100%);
+  display: grid;
+  gap: 6px;
+  color: #526077;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.analysis-toolbar select,
+.analysis-variable-picker select {
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  color: #344259;
+  background: #fff;
+  border: 1px solid #dfe4ec;
+  border-radius: 6px;
+}
+
+.analysis-import-panel {
+  margin-bottom: 18px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.analysis-import-heading,
+.analysis-panel-heading,
+.analysis-variable-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.analysis-import-heading h2,
+.analysis-panel-heading h2 {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.analysis-import-panel .dataset-form {
+  max-width: 720px;
+  margin-top: 12px;
+}
+
+.analysis-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+}
+
+.analysis-tab {
+  min-height: 42px;
+  padding: 0 14px;
+  color: #657187;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.analysis-tab:hover,
+.analysis-tab[aria-selected='true'] {
+  color: #236d58;
+}
+
+.analysis-tab[aria-selected='true'] {
+  border-bottom-color: #3e9276;
+  font-weight: 600;
+}
+
+.analysis-panel {
+  padding: 18px 0 8px;
+}
+
+.analysis-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.analysis-summary-item {
+  min-width: 0;
+  padding: 14px 16px;
+  border-right: 1px solid var(--line);
+}
+
+.analysis-summary-item:last-child {
+  border-right: 0;
+}
+
+.analysis-summary-item span,
+.analysis-summary-item strong {
+  display: block;
+}
+
+.analysis-summary-item span {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.analysis-summary-item strong {
+  margin-top: 5px;
+  color: var(--ink);
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-summary-item strong small {
+  color: #78859a;
+  font-size: 0.64rem;
+  font-weight: 500;
+}
+
+.analysis-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(240px, 0.8fr);
+  gap: 28px;
+  margin-top: 22px;
+}
+
+.analysis-chart-section,
+.analysis-quality-section,
+.analysis-variables-section,
+.analysis-preview-section {
+  min-width: 0;
+}
+
+.analysis-panel-heading {
+  margin-bottom: 14px;
+}
+
+.analysis-variable-picker {
+  justify-content: flex-end;
+  color: #66748a;
+  font-size: 0.7rem;
+}
+
+.analysis-variable-picker select {
+  width: min(220px, 55vw);
+  min-height: 34px;
+  font-size: 0.73rem;
+}
+
+.analysis-chart-wrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: 300px;
+  overflow: hidden;
+}
+
+.analysis-chart-wrap canvas {
+  max-width: 100%;
+}
+
+.analysis-chart-empty {
+  display: grid;
+  min-height: 160px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.analysis-quality-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  color: #38745f;
+  background: #edf7f2;
+  border-radius: 4px;
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+
+.analysis-quality-list {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analysis-quality-list li {
+  padding: 10px 0 10px 12px;
+  color: #59677d;
+  border-left: 2px solid #d8aa54;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.analysis-quality-list li.is-clean {
+  border-left-color: #58a588;
+}
+
+.analysis-table-wrap {
+  width: 100%;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+}
+
+.analysis-table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: 0.74rem;
+  text-align: left;
+}
+
+.analysis-table th,
+.analysis-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.analysis-table th {
+  position: sticky;
+  top: 0;
+  color: #68768a;
+  background: #f7f9fb;
+  font-size: 0.66rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.analysis-table td {
+  color: #435168;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-table td:first-child {
+  color: #26354a;
+  font-weight: 600;
+}
+
+.analysis-table .numeric-cell {
+  text-align: right;
+}
+
+.analysis-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.analysis-type::before {
+  width: 7px;
+  height: 7px;
+  background: #4a9b7d;
+  border-radius: 50%;
+  content: '';
+}
+
+.analysis-type.categorical::before {
+  background: #d78a64;
+}
+
+.analysis-preview-note {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+@media (max-width: 860px) {
+  .analysis-overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+}
+
+@media (max-width: 650px) {
+  .analysis-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .analysis-toolbar label {
+    width: 100%;
+  }
+
+  .analysis-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analysis-summary-item:nth-child(2) {
+    border-right: 0;
+  }
+
+  .analysis-summary-item:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .analysis-panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .analysis-variable-picker {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .analysis-variable-picker select {
+    width: min(230px, 65vw);
+  }
+
+  .analysis-chart-wrap {
+    height: 250px;
+  }
+}

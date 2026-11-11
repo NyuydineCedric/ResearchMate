@@ -1,0 +1,128 @@
+#editor-page {
+  width: min(1440px, 100%);
+}
+
+#editor-page[aria-busy='true'] {
+  min-height: 60vh;
+  color: #66748a;
+}
+
+#editor-page[aria-busy='true']::before {
+  display: block;
+  padding: 48px 0;
+  content: 'Loading document editor…';
+}
+
+.writing-assistant-dialog {
+  width: min(660px, calc(100vw - 32px));
+  max-height: min(820px, calc(100vh - 32px));
+  padding: 0;
+  color: #293443;
+  background: #fff;
+  border: 1px solid #dfe3e9;
+  border-radius: 10px;
+  box-shadow: 0 24px 80px rgba(32, 42, 64, 0.24);
+}
+
+.writing-assistant-dialog::backdrop {
+  background: rgba(25, 35, 49, 0.46);
+  backdrop-filter: blur(2px);
+}
+
+.writing-assistant-form {
+  display: grid;
+  gap: 12px;
+  max-height: inherit;
+  padding: 22px;
+  overflow: auto;
+}
+
+.writing-assistant-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.writing-assistant-heading h2 {
+  margin: 3px 0 0;
+  color: #28313d;
+  font-size: 1.15rem;
+}
+
+.writing-assistant-form > label {
+  display: grid;
+  gap: 6px;
+  color: #465365;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.writing-assistant-form select,
+.writing-assistant-form textarea {
+  width: 100%;
+  padding: 9px 11px;
+  color: #344259;
+  background: #fff;
+  border: 1px solid #d6dce5;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.writing-assistant-form textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+
+#writing-assistant-result {
+  min-height: 190px;
+  white-space: pre-wrap;
+}
+
+.writing-assistant-context,
+.writing-assistant-disclosure {
+  margin: 0;
+  color: #778397;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.writing-assistant-disclosure {
+  padding: 9px 11px;
+  background: #f5f7fa;
+  border-left: 3px solid #68a88f;
+}
+
+.writing-assistant-generate,
+.writing-assistant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.writing-assistant-generate #writing-assistant-status {
+  flex: 1 1 180px;
+  color: #687587;
+  font-size: 0.72rem;
+}
+
+.writing-assistant-generate #writing-assistant-status.error-message {
+  color: #ad4b45;
+}
+
+.writing-assistant-actions {
+  justify-content: flex-end;
+  padding-top: 10px;
+  border-top: 1px solid #edf0f3;
+}
+
+@media (max-width: 650px) {
+  .writing-assistant-form {
+    padding: 16px;
+  }
+
+  .writing-assistant-actions .button {
+    flex: 1 1 auto;
+  }
+}

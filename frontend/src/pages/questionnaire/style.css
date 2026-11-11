@@ -1,0 +1,4 @@
+#questionnaire-page .questionnaire-list,
+#questionnaire-page .questionnaire-responses-list {
+  min-width: 0;
+}

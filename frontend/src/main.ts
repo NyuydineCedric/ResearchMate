@@ -1,4 +1,19 @@
 import './style.css'
+import { dashboardPage } from './pages/dashboard'
+import { projectsPage } from './pages/projects'
+import { assistantPage } from './pages/assistant'
+import { analysisPage } from './pages/analysis'
+import { referencesPage } from './pages/references'
+import { questionnairePage } from './pages/questionnaire'
+import { settingsPage } from './pages/settings'
+import { bindDashboardPage } from './pages/dashboard/controller'
+import { bindProjectsPage } from './pages/projects/controller'
+import { bindAssistantPage } from './pages/assistant/controller'
+import { bindAnalysisPage, readCsvFile } from './pages/analysis/controller'
+import { bindReferencesPage } from './pages/references/controller'
+import { bindQuestionnairePage } from './pages/questionnaire/controller'
+import { bindSettingsPage, renderSettingsPage, type AppSettings, type SettingsPageContext } from './pages/settings/controller'
+import { bindEditorPage } from './pages/editor/controller'
 
 type ProjectStatus = 'planning' | 'active' | 'paused' | 'completed'
 
@@ -90,11 +105,6 @@ type QuestionnaireResponse = {
   answers: QuestionnaireAnswer[]
 }
 
-type AppSettings = {
-  autoSave: boolean
-  compactMode: boolean
-}
-
 type LocalDraft = {
   title: string
   content: string
@@ -127,6 +137,7 @@ type ColumnStatistic = {
   min?: number
   max?: number
   quartiles?: { q1: number; q2: number; q3: number }
+  histogram?: Array<{ start: number; end: number; count: number }>
   unique?: number
   frequencies?: Array<{ value: string; count: number; percentage: number }>
 }
@@ -265,235 +276,21 @@ app.innerHTML = `
         <div class="topbar-right"><span class="local-badge"><span class="online-dot"></span>Local workspace</span></div>
       </header>
 
-      <section class="page-content" id="dashboard-page">
-        <div class="welcome-row">
-          <div>
-            <p class="date-line" id="today-date"></p>
-            <h1>Good to see you.</h1>
-            <p class="page-subtitle">Your academic research workspace, ready when you are.</p>
-          </div>
-          <button class="button button-primary" id="new-project-button" type="button">${icon('plus', 18)} New research project</button>
-        </div>
+      ${dashboardPage(icon)}
 
-        <div class="summary-grid" id="summary-cards" aria-label="Research workspace summary">
-          <article class="summary-card loading-card"><span class="skeleton-line"></span><span class="skeleton-number"></span></article>
-          <article class="summary-card loading-card"><span class="skeleton-line"></span><span class="skeleton-number"></span></article>
-          <article class="summary-card loading-card"><span class="skeleton-line"></span><span class="skeleton-number"></span></article>
-        </div>
+      ${projectsPage(icon)}
 
-        <div class="dashboard-grid">
-          <section class="content-card projects-card" id="projects">
-            <div class="section-heading">
-              <div><span class="section-kicker">YOUR WORK</span><h2>Active projects</h2></div>
-              <button class="text-button" type="button" data-open-section="projects">All projects ${icon('arrow', 15)}</button>
-            </div>
-            <div id="project-list" class="project-list"><div class="loading-placeholder">Loading your research projects…</div></div>
-          </section>
+      ${assistantPage()}
 
-          <section class="content-card deadline-card">
-            <div class="section-heading">
-              <div><span class="section-kicker">STAY ON TRACK</span><h2>Upcoming deadlines</h2></div>
-              ${icon('calendar', 18)}
-            </div>
-            <div id="deadline-list" class="deadline-list"><div class="loading-placeholder">Loading deadlines…</div></div>
-          </section>
+      ${analysisPage()}
 
-          <section class="content-card documents-card" id="documents">
-            <div class="section-heading">
-              <div><span class="section-kicker">RECENTLY UPDATED</span><h2>Recent documents</h2></div>
-              <button class="text-button" type="button" data-open-section="editor">Open editor ${icon('arrow', 15)}</button>
-            </div>
-            <div id="document-list" class="document-list"><div class="loading-placeholder">Loading documents…</div></div>
-          </section>
+      ${referencesPage(icon)}
 
-          <section class="content-card quick-card">
-            <div class="section-heading">
-              <div><span class="section-kicker">PICK UP WHERE YOU LEFT OFF</span><h2>Quick actions</h2></div>
-            </div>
-            <div class="quick-actions">
-              <button type="button" class="quick-action" id="quick-project">
-                <span class="quick-icon lavender">${icon('plus', 19)}</span>
-                <span><strong>Start a project</strong><small>Set up a research topic</small></span>
-                ${icon('arrow', 16)}
-              </button>
-              <button type="button" class="quick-action" id="quick-document">
-                <span class="quick-icon mint">${icon('file', 19)}</span>
-                <span><strong>Write a document</strong><small>Save a research draft</small></span>
-                ${icon('arrow', 16)}
-              </button>
-              <button type="button" class="quick-action" id="quick-assistant">
-                <span class="quick-icon peach">${icon('assistant', 19)}</span>
-                <span><strong>Research planning guidance</strong><small>Use your saved project context</small></span>
-                ${icon('arrow', 16)}
-              </button>
-            </div>
-          </section>
-        </div>
-        <p id="status-message" class="status-message" role="status" aria-live="polite"></p>
-      </section>
+      <section class="page-content secondary-page" id="editor-page" hidden aria-busy="false"></section>
 
-      <section class="page-content secondary-page" id="projects-page" hidden>
-        <div class="welcome-row"><div><p class="date-line">RESEARCH WORKSPACE</p><h1>My Projects</h1><p class="page-subtitle">Organize your research questions, milestones, and timelines.</p></div><button class="button button-primary" id="projects-new-button" type="button">${icon('plus', 18)} New research project</button></div>
-        <div class="content-card"><div id="all-projects-list" class="project-list"><div class="loading-placeholder">Loading your research projects…</div></div></div>
-      </section>
+      ${questionnairePage(icon)}
 
-      <section class="page-content secondary-page" id="assistant-page" hidden>
-        <div class="welcome-row"><div><p class="date-line">AI RESEARCH</p><h1>AI Research Assistant</h1><p class="page-subtitle">Ask research questions and continue saved conversations grounded in your workspace.</p></div></div>
-        <div class="assistant-layout">
-          <div class="content-card assistant-panel">
-            <div class="assistant-header"><span class="section-kicker">GEMINI-POWERED</span><h2>Research assistant</h2></div>
-            <label for="assistant-conversations">Saved conversations</label>
-            <div class="assistant-conversation-controls">
-              <select id="assistant-conversations"><option value="">New conversation</option></select>
-              <button class="button button-secondary" id="assistant-new-conversation" type="button">${icon('plus', 16)} New</button>
-            </div>
-            <label for="assistant-project">Use project context</label>
-            <select id="assistant-project"><option value="">Workspace documents only</option></select>
-            <label for="assistant-prompt">Your message</label>
-            <textarea id="assistant-prompt" rows="7" maxlength="4000" placeholder="Ask about methodology, your research question, statistical concepts, or your saved project..."></textarea>
-            <p class="assistant-disclosure">AI responses require a Gemini API key configured on the backend. Workspace notes and relevant dataset summaries are shared as context.</p>
-            <div class="assistant-actions"><button class="button button-primary" id="assistant-submit" type="button">Send to assistant</button><button class="button button-secondary" id="assistant-clear" type="button">Clear</button></div>
-          </div>
-          <div class="content-card assistant-panel">
-            <div class="assistant-header"><span class="section-kicker">SAVED CHAT</span><h2>Conversation</h2></div>
-            <div id="assistant-output" class="assistant-output" aria-live="polite">
-              <p class="empty-assistant">Start a conversation to get research guidance. Your messages are saved in this workspace.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="page-content secondary-page" id="analysis-page" hidden>
-        <div class="welcome-row"><div><p class="date-line">ANALYSIS</p><h1>Data Analysis</h1><p class="page-subtitle">Analyze an imported CSV or send saved questionnaire responses here for descriptive statistics.</p></div></div>
-        <div class="content-card dataset-import-card">
-          <div class="section-heading"><div><span class="section-kicker">YOUR DATA</span><h2>Import a dataset</h2></div></div>
-          <form id="dataset-form" class="dataset-form">
-            <label for="dataset-file">CSV or Excel file (.csv, .xlsx)</label>
-            <input id="dataset-file" name="file" type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
-            <label for="dataset-project">Related research project <span class="optional-label">Optional</span></label>
-            <select id="dataset-project" name="projectId"><option value="">No project selected</option></select>
-            <div class="form-actions"><span id="dataset-upload-status" role="status" aria-live="polite"></span><button class="button button-primary" type="submit">Import and analyze</button></div>
-          </form>
-          <p class="dataset-help">CSV only · maximum 800 KB, 10,000 responses, and 100 columns. Data is stored in your local ResearchMate SQLite database.</p>
-        </div>
-        <div class="content-card dataset-results-card">
-          <div class="section-heading"><div><span class="section-kicker">DESCRIPTIVE STATISTICS</span><h2>Saved datasets</h2></div></div>
-          <label for="dataset-select">Select dataset</label>
-          <select id="dataset-select"><option value="">No datasets imported</option></select>
-          <div id="dataset-analysis" class="dataset-analysis"><p class="empty-assistant">Import a CSV file to see row counts, missing values, numeric summaries, and category frequencies.</p></div>
-        </div>
-      </section>
-
-      <section class="page-content secondary-page" id="references-page" hidden>
-        <div class="welcome-row"><div><p class="date-line">LITERATURE</p><h1>Literature & References</h1><p class="page-subtitle">Capture sources, organise citations, and keep your reading notes close to your work.</p></div><div class="reference-page-actions"><button class="button button-secondary" id="export-bibliography" type="button" disabled>Export bibliography</button><button class="button button-primary" id="add-reference-button" type="button">${icon('plus', 18)} Add reference</button></div></div>
-        <div class="content-card">
-          <form id="reference-form" class="reference-form" hidden>
-            <input type="hidden" name="id" id="reference-id">
-            <div class="section-heading"><div><span class="section-kicker">SOURCE DETAILS</span><h2 id="reference-form-heading">Add a reference</h2></div></div>
-            <div class="reference-form-grid">
-              <label>Title<input name="title" required maxlength="300"></label>
-              <label>Author(s)<input name="authors" maxlength="500" placeholder="e.g. Smith, J. A.; Doe, M."></label>
-              <label>Source type<select name="type"><option value="article">Journal article</option><option value="book">Book</option><option value="chapter">Book chapter</option><option value="thesis">Thesis</option><option value="website">Website</option><option value="other">Other</option></select></label>
-              <label>Year<input name="year" maxlength="20" placeholder="e.g. 2024"></label>
-              <label class="reference-url-field">URL<input name="url" type="url" maxlength="2000" placeholder="https://"></label>
-              <label class="reference-abstract-field">Abstract or reading notes<textarea name="abstract" maxlength="5000" rows="3"></textarea></label>
-            </div>
-            <p id="reference-form-error" class="form-error" role="alert"></p>
-            <div class="form-actions"><button class="button button-secondary" id="cancel-reference" type="button">Cancel</button><button class="button button-primary" type="submit">Save reference</button></div>
-          </form>
-          <p class="bibliography-disclosure">Citation drafts use only the details you enter. Verify author formatting and add missing publication information before submitting academic work.</p>
-          <div id="references-list" class="reference-list"></div>
-        </div>
-      </section>
-
-      <section class="page-content secondary-page" id="editor-page" hidden>
-        <div class="welcome-row"><div><p class="date-line">RESEARCH WORKSPACE</p><h1>Document Editor</h1><p class="page-subtitle">Create and save research notes or academic drafts in your workspace.</p></div></div>
-        <form class="content-card editor-form" id="document-form">
-          <label for="document-title">Document title</label>
-          <input id="document-title" name="title" maxlength="200" required placeholder="e.g. Literature review — research notes">
-          <label for="document-project">Related research project <span class="optional-label">Optional</span></label>
-          <select id="document-project" name="projectId"><option value="">No project selected</option></select>
-          <div class="document-citation-tools">
-            <label for="document-reference-select">Insert from saved references<select id="document-reference-select"><option value="">No references saved yet</option></select></label>
-            <button class="button button-secondary" id="insert-document-citation" type="button" disabled>Insert citation</button>
-            <button class="button button-secondary" id="insert-document-bibliography" type="button" disabled>Insert bibliography</button>
-          </div>
-          <p class="document-citation-note">Citation text uses the details saved in your reference library. Check the final style and publication details before submission.</p>
-          <label for="document-content">Draft content</label>
-          <textarea id="document-content" name="content" maxlength="900000" rows="14" placeholder="Start writing your research notes or draft…"></textarea>
-          <div class="form-actions"><span id="document-save-status" role="status" aria-live="polite"></span><button class="button button-primary" type="submit">Save document</button></div>
-          <input id="document-id" name="id" type="hidden">
-          <div class="document-form-actions"><button class="button button-secondary" id="new-document" type="button">New document</button><button class="button button-secondary" id="export-document" type="button">Export as text</button></div>
-        </form>
-        <div class="content-card editor-recent"><div class="section-heading"><div><span class="section-kicker">YOUR WORK</span><h2>Saved documents</h2></div></div><div id="all-documents-list" class="document-list"></div></div>
-      </section>
-
-      <section class="page-content secondary-page" id="questionnaire-page" hidden>
-        <div class="welcome-row"><div><p class="date-line">RESEARCH TOOL</p><h1>Questionnaire Builder</h1><p class="page-subtitle">Build and save a questionnaire for one of your research projects.</p></div><button class="button button-primary" id="new-questionnaire" type="button">${icon('plus', 18)} New questionnaire</button></div>
-        <div class="content-card">
-          <div class="questionnaire-toolbar">
-            <label for="questionnaire-select">Saved questionnaires<select id="questionnaire-select"><option value="">Loading questionnaires…</option></select></label>
-            <label for="questionnaire-title">Title<input id="questionnaire-title" maxlength="200" placeholder="e.g. Student study habits survey"></label>
-            <label for="questionnaire-project">Research project<select id="questionnaire-project"><option value="">No project selected</option></select></label>
-          </div>
-          <section class="questionnaire-ai-panel" aria-labelledby="questionnaire-ai-heading">
-            <div class="questionnaire-ai-heading">
-              <span class="section-kicker">AI OPTION</span>
-              <h2 id="questionnaire-ai-heading">Generate a questionnaire draft</h2>
-              <p>Describe your research topic or objective. Review and edit every question before saving.</p>
-            </div>
-            <div class="questionnaire-ai-fields">
-              <label for="questionnaire-ai-topic">Topic or research objective
-                <textarea id="questionnaire-ai-topic" maxlength="1500" rows="3" placeholder="e.g. Explore how study habits relate to university students’ wellbeing"></textarea>
-              </label>
-              <label for="questionnaire-ai-count">Number of questions
-                <select id="questionnaire-ai-count">${[5, 8, 10, 12, 15, 20].map((count) => `<option value="${count}" ${count === 8 ? 'selected' : ''}>${count}</option>`).join('')}</select>
-              </label>
-              <label for="questionnaire-ai-style">Question type
-                <select id="questionnaire-ai-style">
-                  <option value="mixed">A mix of question types</option>
-                  <option value="text">Short-answer text</option>
-                  <option value="multiple-choice">Multiple choice</option>
-                  <option value="scale">Likert scale</option>
-                </select>
-              </label>
-              <button class="button button-primary questionnaire-ai-button" id="generate-questionnaire" type="button">${icon('assistant', 17)} Generate questions with AI</button>
-            </div>
-            <p class="questionnaire-ai-note">The generated draft is not saved until you choose Save questionnaire.</p>
-            <span id="questionnaire-ai-status" role="status" aria-live="polite"></span>
-          </section>
-          <div class="questionnaire-manual-heading">
-            <h2>Build manually</h2>
-            <p>Add and edit questions yourself below, or adjust an AI-generated draft.</p>
-          </div>
-          <div id="questionnaire-list" class="questionnaire-list"></div>
-          <div class="questionnaire-actions"><span id="questionnaire-status" role="status" aria-live="polite"></span><button class="button button-secondary" id="add-question-button" type="button">${icon('plus', 17)} Add question</button><button class="button button-secondary" id="delete-questionnaire" type="button" disabled>Delete</button><button class="button button-secondary" id="export-questionnaire" type="button">Export JSON</button><button class="button button-primary" id="save-questionnaire" type="button">Save questionnaire</button></div>
-        </div>
-        <div class="content-card questionnaire-response-panel" id="questionnaire-response-panel" hidden>
-          <div class="section-heading">
-            <div><span class="section-kicker">COLLECT RESPONSES</span><h2>Questionnaire responses</h2></div>
-            <span class="response-count" id="questionnaire-response-count">0 responses</span>
-          </div>
-          <p class="response-disclosure">Responses are saved in this local ResearchMate database. This does not publish a public survey link.</p>
-          <div class="questionnaire-response-actions">
-            <button class="button button-secondary" id="preview-questionnaire" type="button">Preview &amp; submit response</button>
-            <button class="button button-secondary" id="export-questionnaire-responses" type="button" disabled>Export responses CSV</button>
-            <button class="button button-primary" id="analyze-questionnaire-responses" type="button" disabled>Analyze responses</button>
-          </div>
-          <p id="questionnaire-response-status" class="response-status" role="status" aria-live="polite"></p>
-          <div id="questionnaire-preview" class="questionnaire-preview" hidden></div>
-          <div id="questionnaire-responses-list" class="questionnaire-responses-list"></div>
-        </div>
-      </section>
-
-      <section class="page-content secondary-page" id="settings-page" hidden>
-        <div class="welcome-row"><div><p class="date-line">WORKSPACE</p><h1>Settings</h1><p class="page-subtitle">Adjust research workflow preferences and local preferences.</p></div></div>
-        <div class="content-card settings-card">
-          <label class="setting-row"><span><strong>Auto-save unsaved drafts on this device</strong><small>Keep a local recovery copy while you write. Use Save document to sync it to the database.</small></span><input type="checkbox" id="setting-auto-save" checked></label>
-          <label class="setting-row"><span>Compact workspace layout</span><input type="checkbox" id="setting-compact"></label>
-          <div class="settings-actions"><button class="button button-primary" id="save-settings" type="button">Save settings</button></div>
-        </div>
-      </section>
+      ${settingsPage()}
     </main>
   </div>
   <dialog id="project-dialog" class="modal">
@@ -528,6 +325,15 @@ let assistantConversations: AssistantConversation[] = []
 let activeAssistantConversationId: number | null = null
 let assistantMessages: AssistantMessage[] = []
 let projectsLoadPromise: Promise<void> = Promise.resolve()
+let documentPaginationPending = true
+let documentPaginationFrame: number | undefined
+let documentPaginationVersion = 0
+let documentMetricsTimer: number | undefined
+let editorPageInitialized = false
+let editorPagePromise: Promise<void> | undefined
+let documentEditable: HTMLElement
+let localDraftTimer: number | undefined
+let pendingLocalDraft: LocalDraft | null = null
 const progressSaveTimers = new Map<number, number>()
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -698,8 +504,7 @@ function renderDocuments(target: HTMLElement, items: ResearchDocument[]): void {
       const selected = items.find((item) => item.id === Number(button.dataset.editDocument))
       if (!selected) return
       if ($('#editor-page').hidden) {
-        navigate('editor')
-        void projectsLoadPromise.then(() => fillDocumentEditor(selected))
+        void navigate('editor').then(() => projectsLoadPromise).then(() => fillDocumentEditor(selected))
       } else {
         fillDocumentEditor(selected)
       }
@@ -779,54 +584,151 @@ function formatStatistic(value: number | undefined): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(value)
 }
 
+let activeDatasetDetail: DatasetDetail | null = null
+
+function exportAnalysisCsv(): void {
+  if (!activeDatasetDetail) return
+  const dataset = activeDatasetDetail
+  const rows: string[][] = [
+    ['Dataset', dataset.sourceName],
+    ['Project', dataset.projectTitle || 'Unlinked'],
+    ['Observations', String(dataset.rowCount)],
+    ['Variables', String(dataset.columnCount)],
+    ['Duplicate rows', String(dataset.duplicateRows)],
+    [],
+    ['Variable', 'Type', 'Valid', 'Missing', 'Mean', 'Median', 'Standard deviation', 'Variance', 'Minimum', 'Q1', 'Q2', 'Q3', 'Maximum', 'Distinct values', 'Top categories']
+  ]
+  dataset.columnStats.forEach((stat) => {
+    rows.push([
+      stat.name,
+      stat.kind,
+      String(stat.nonMissing),
+      String(stat.missing),
+      stat.kind === 'numeric' ? formatStatistic(stat.mean) : '',
+      stat.kind === 'numeric' ? formatStatistic(stat.median) : '',
+      stat.kind === 'numeric' ? formatStatistic(stat.standardDeviation ?? undefined) : '',
+      stat.kind === 'numeric' ? formatStatistic(stat.variance ?? undefined) : '',
+      stat.kind === 'numeric' ? formatStatistic(stat.min) : '',
+      stat.kind === 'numeric' ? formatStatistic(stat.quartiles?.q1) : '',
+      stat.kind === 'numeric' ? formatStatistic(stat.quartiles?.q2) : '',
+      stat.kind === 'numeric' ? formatStatistic(stat.quartiles?.q3) : '',
+      stat.kind === 'numeric' ? formatStatistic(stat.max) : '',
+      stat.kind === 'categorical' ? String(stat.unique ?? 0) : '',
+      stat.kind === 'categorical'
+        ? (stat.frequencies ?? []).map((item) => `${item.value} (${item.count}; ${formatStatistic(item.percentage)}%)`).join(' | ')
+        : ''
+    ])
+  })
+  const filename = `${dataset.sourceName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').replace(/\.[^.]+$/, '') || 'dataset'}-analysis.csv`
+  downloadFile(filename, `${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}\r\n`, 'text/csv')
+  showToast('Analysis results exported as CSV.')
+}
+
 function renderDatasetAnalysis(dataset: DatasetDetail): void {
   const target = $('#dataset-analysis')
-  const columns = dataset.columnStats.map((stat) => {
-    const details = stat.kind === 'numeric'
-      ? `<dl class="stat-grid">
-          <div><dt>Count</dt><dd>${stat.count ?? stat.nonMissing}</dd></div>
-          <div><dt>Mean</dt><dd>${formatStatistic(stat.mean)}</dd></div>
-          <div><dt>Median</dt><dd>${formatStatistic(stat.median)}</dd></div>
-          <div><dt>Std. deviation</dt><dd>${formatStatistic(stat.standardDeviation ?? undefined)}</dd></div>
-          <div><dt>Variance</dt><dd>${formatStatistic(stat.variance ?? undefined)}</dd></div>
-          <div><dt>Q1 / Q3</dt><dd>${formatStatistic(stat.quartiles?.q1)} / ${formatStatistic(stat.quartiles?.q3)}</dd></div>
-          <div><dt>Minimum</dt><dd>${formatStatistic(stat.min)}</dd></div>
-          <div><dt>Maximum</dt><dd>${formatStatistic(stat.max)}</dd></div>
-        </dl>`
-      : `<div class="category-summary"><span>${stat.unique ?? 0} distinct value${stat.unique === 1 ? '' : 's'}</span>
-          <ul>${(stat.frequencies ?? []).map((item) => `<li><span>${escapeHtml(item.value)}</span><strong>${item.count} (${formatStatistic(item.percentage)}%)</strong></li>`).join('') || '<li>No responses recorded</li>'}</ul>
-        </div>`
-    return `<article class="column-stat-card">
-      <div class="column-stat-heading"><strong>${escapeHtml(stat.name)}</strong><span>${stat.kind === 'numeric' ? 'Numeric' : 'Categorical'}</span></div>
-      <p>${stat.nonMissing} ${stat.nonMissing === 1 ? 'response' : 'responses'} · ${stat.missing} missing</p>
-      ${details}
-    </article>`
+  activeDatasetDetail = dataset
+  const exportButton = document.querySelector<HTMLButtonElement>('#export-analysis-csv')
+  if (exportButton) exportButton.disabled = false
+  const missingCells = dataset.columnStats.reduce((total, stat) => total + stat.missing, 0)
+  const totalCells = dataset.rowCount * dataset.columnCount
+  const selectedVariable = dataset.columnStats.find((stat) => stat.kind === 'numeric') ?? dataset.columnStats[0]
+  const variableRows = dataset.columnStats.map((stat) => {
+    const numeric = stat.kind === 'numeric'
+    const mode = stat.frequencies?.[0]
+    return `<tr>
+      <td>${escapeHtml(stat.name)}</td>
+      <td><span class="analysis-type ${stat.kind}">${numeric ? 'Numeric' : 'Categorical'}</span></td>
+      <td class="numeric-cell">${stat.nonMissing}</td><td class="numeric-cell">${stat.missing}</td>
+      <td class="numeric-cell">${numeric ? formatStatistic(stat.mean) : '—'}</td>
+      <td class="numeric-cell">${numeric ? formatStatistic(stat.median) : '—'}</td>
+      <td class="numeric-cell">${numeric ? formatStatistic(stat.standardDeviation ?? undefined) : '—'}</td>
+      <td class="numeric-cell">${numeric ? formatStatistic(stat.min) : '—'}</td>
+      <td class="numeric-cell">${numeric ? formatStatistic(stat.max) : '—'}</td>
+      <td>${numeric ? '—' : escapeHtml(mode?.value ?? '—')}</td>
+    </tr>`
   }).join('')
+  const missingRows = dataset.columnStats
+    .filter((stat) => stat.missing > 0)
+    .sort((first, second) => second.missing - first.missing)
+    .map((stat) => `<tr><td>${escapeHtml(stat.name)}</td><td class="numeric-cell">${stat.missing}</td><td class="numeric-cell">${formatStatistic(dataset.rowCount ? stat.missing / dataset.rowCount * 100 : 0)}%</td></tr>`)
+    .join('')
+  const sampleTable = `
+    <div class="analysis-table-wrap"><table class="analysis-table"><thead><tr>${dataset.columns.map((column) => `<th scope="col">${escapeHtml(column)}</th>`).join('')}</tr></thead>
+      <tbody>${dataset.sampleRows.map((row) => `<tr>${dataset.columns.map((column) => `<td>${escapeHtml(row[column] ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>`
   target.innerHTML = `
-    <div class="dataset-overview">
-      <div><span>File</span><strong>${escapeHtml(dataset.sourceName)}</strong></div>
-      <div><span>Responses</span><strong>${dataset.rowCount}</strong></div>
-      <div><span>Variables</span><strong>${dataset.columnCount}</strong></div>
-      <div><span>Duplicate rows</span><strong>${dataset.duplicateRows}</strong></div>
-      <div><span>Project</span><strong>${escapeHtml(dataset.projectTitle || 'Unlinked')}</strong></div>
-      ${dataset.questionnaireId ? '<div><span>Source</span><strong>Saved questionnaire responses</strong></div>' : ''}
+    <div class="analysis-dataset-meta"><strong>${escapeHtml(dataset.sourceName)}</strong><span>${dataset.projectTitle ? `Project: ${escapeHtml(dataset.projectTitle)}` : 'Unlinked dataset'}</span><span>${dataset.questionnaireId ? 'Questionnaire responses' : `Imported ${relativeDate(dataset.createdAt)}`}</span></div>
+    <div class="analysis-tabs" role="tablist" aria-label="Analysis views">
+      <button class="analysis-tab" type="button" role="tab" aria-selected="true" data-analysis-tab="overview">Overview</button>
+      <button class="analysis-tab" type="button" role="tab" aria-selected="false" data-analysis-tab="variables">Variables</button>
+      <button class="analysis-tab" type="button" role="tab" aria-selected="false" data-analysis-tab="preview">Data preview</button>
+      <button class="analysis-tab" type="button" role="tab" aria-selected="false" data-analysis-tab="quality">Data quality</button>
     </div>
-    <section class="dataset-quality">
-      <h3>Data quality</h3>
-      <ul>${dataset.qualityWarnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul>
+    <section class="analysis-panel" role="tabpanel" data-analysis-panel="overview">
+      <div class="analysis-summary-grid">
+        <div class="analysis-summary-item"><span>Observations</span><strong>${dataset.rowCount.toLocaleString()}</strong></div>
+        <div class="analysis-summary-item"><span>Variables</span><strong>${dataset.columnCount.toLocaleString()}</strong></div>
+        <div class="analysis-summary-item"><span>Missing cells</span><strong>${missingCells.toLocaleString()} <small>${formatStatistic(totalCells ? missingCells / totalCells * 100 : 0)}%</small></strong></div>
+        <div class="analysis-summary-item"><span>Duplicate rows</span><strong>${dataset.duplicateRows.toLocaleString()}</strong></div>
+      </div>
+      <div class="analysis-overview-grid">
+        <section class="analysis-chart-section" aria-labelledby="analysis-chart-title">
+          <div class="analysis-panel-heading"><div><span class="section-kicker">DISTRIBUTION</span><h2 id="analysis-chart-title">Variable distribution</h2></div><label class="analysis-variable-picker" for="analysis-variable-select">Variable<select id="analysis-variable-select">${dataset.columnStats.map((stat) => `<option value="${escapeHtml(stat.name)}" ${stat.name === selectedVariable?.name ? 'selected' : ''}>${escapeHtml(stat.name)}</option>`).join('')}</select></label></div>
+          <div class="analysis-chart-wrap"><canvas id="dataset-distribution-chart" role="img" aria-label="Selected variable distribution chart"></canvas></div>
+          <p class="analysis-preview-note" id="analysis-chart-caption"></p>
+        </section>
+        <section class="analysis-quality-section"><div class="analysis-panel-heading"><div><span class="section-kicker">QUICK CHECKS</span><h2>Data quality</h2></div><span class="analysis-quality-count">${dataset.qualityWarnings.length ? `${dataset.qualityWarnings.length} check${dataset.qualityWarnings.length === 1 ? '' : 's'}` : 'No issues'}</span></div><ul class="analysis-quality-list">${dataset.qualityWarnings.slice(0, 4).map((warning) => `<li class="${warning.startsWith('No missing') ? 'is-clean' : ''}">${escapeHtml(warning)}</li>`).join('')}</ul><button class="text-button" type="button" data-analysis-open-tab="quality">Review quality details →</button></section>
+      </div>
     </section>
-    <section class="dataset-preview">
-      <h3>Sample rows <span class="optional-label">First ${dataset.sampleRows.length} of ${dataset.rowCount}</span></h3>
-      <div class="dataset-table-wrap"><table><thead><tr>${dataset.columns.map((column) => `<th scope="col">${escapeHtml(column)}</th>`).join('')}</tr></thead>
-        <tbody>${dataset.sampleRows.map((row) => `<tr>${dataset.columns.map((column) => `<td>${escapeHtml(row[column] ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody>
-      </table></div>
+    <section class="analysis-panel" role="tabpanel" data-analysis-panel="variables" hidden>
+      <div class="analysis-panel-heading"><div><span class="section-kicker">VARIABLES</span><h2>Descriptive statistics</h2></div><span class="analysis-preview-note">${dataset.columnStats.length} variables</span></div>
+      <div class="analysis-table-wrap"><table class="analysis-table"><thead><tr><th scope="col">Variable</th><th scope="col">Type</th><th class="numeric-cell" scope="col">Valid</th><th class="numeric-cell" scope="col">Missing</th><th class="numeric-cell" scope="col">Mean</th><th class="numeric-cell" scope="col">Median</th><th class="numeric-cell" scope="col">Std. dev.</th><th class="numeric-cell" scope="col">Min</th><th class="numeric-cell" scope="col">Max</th><th scope="col">Top category</th></tr></thead><tbody>${variableRows}</tbody></table></div>
     </section>
-    <div class="column-stat-grid">${columns}</div>
+    <section class="analysis-panel" role="tabpanel" data-analysis-panel="preview" hidden>
+      <div class="analysis-panel-heading"><div><span class="section-kicker">ROWS</span><h2>Data preview</h2></div><span class="analysis-preview-note">First ${dataset.sampleRows.length} of ${dataset.rowCount.toLocaleString()} observations</span></div>
+      ${sampleTable}
+    </section>
+    <section class="analysis-panel" role="tabpanel" data-analysis-panel="quality" hidden>
+      <div class="analysis-panel-heading"><div><span class="section-kicker">VALIDATION</span><h2>Data quality report</h2></div></div>
+      <ul class="analysis-quality-list analysis-quality-full">${dataset.qualityWarnings.map((warning) => `<li class="${warning.startsWith('No missing') ? 'is-clean' : ''}">${escapeHtml(warning)}</li>`).join('')}</ul>
+      <div class="analysis-panel-heading analysis-missing-heading"><div><span class="section-kicker">COMPLETENESS</span><h2>Missing values by variable</h2></div></div>
+      ${missingRows ? `<div class="analysis-table-wrap"><table class="analysis-table"><thead><tr><th scope="col">Variable</th><th class="numeric-cell" scope="col">Missing</th><th class="numeric-cell" scope="col">Missing %</th></tr></thead><tbody>${missingRows}</tbody></table></div>` : '<p class="analysis-preview-note">No missing values detected.</p>'}
+    </section>
   `
+
+  const select = target.querySelector<HTMLSelectElement>('#analysis-variable-select')
+  const drawSelectedVariable = async (): Promise<void> => {
+    const variable = dataset.columnStats.find((stat) => stat.name === select?.value) ?? selectedVariable
+    const canvas = target.querySelector<HTMLCanvasElement>('#dataset-distribution-chart')
+    if (!canvas || !variable) return
+    const { renderDatasetChart } = await import('./pages/analysis/charts')
+    renderDatasetChart(canvas, variable)
+    target.querySelector<HTMLElement>('#analysis-chart-caption')!.textContent = variable.kind === 'numeric'
+      ? `Histogram of ${variable.count ?? variable.nonMissing} numeric observations. Bins are calculated from the full dataset.`
+      : `Most frequent categories for ${variable.unique ?? 0} distinct values.`
+  }
+  select?.addEventListener('change', () => { void drawSelectedVariable() })
+  target.querySelectorAll<HTMLButtonElement>('[data-analysis-tab], [data-analysis-open-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const selectedTab = button.dataset.analysisTab ?? button.dataset.analysisOpenTab
+      if (!selectedTab) return
+      target.querySelectorAll<HTMLButtonElement>('[data-analysis-tab]').forEach((tab) => {
+        tab.setAttribute('aria-selected', String(tab.dataset.analysisTab === selectedTab))
+      })
+      target.querySelectorAll<HTMLElement>('[data-analysis-panel]').forEach((panel) => {
+        panel.hidden = panel.dataset.analysisPanel !== selectedTab
+      })
+      if (selectedTab === 'overview') void drawSelectedVariable()
+    })
+  })
+  void drawSelectedVariable()
 }
 
 async function loadDatasetDetail(datasetId: number): Promise<void> {
   const target = $('#dataset-analysis')
+  activeDatasetDetail = null
+  const exportButton = document.querySelector<HTMLButtonElement>('#export-analysis-csv')
+  if (exportButton) exportButton.disabled = true
   target.innerHTML = '<p class="loading-placeholder">Calculating dataset summaries…</p>'
   try {
     const result = await request<{ dataset: DatasetDetail }>(`/api/datasets/${datasetId}`)
@@ -842,6 +744,9 @@ async function loadDatasetsPage(selectedId?: number): Promise<void> {
     const result = await request<{ datasets: DatasetSummary[] }>('/api/datasets')
     if (!result.datasets.length) {
       select.innerHTML = '<option value="">No datasets imported</option>'
+      activeDatasetDetail = null
+      const exportButton = document.querySelector<HTMLButtonElement>('#export-analysis-csv')
+      if (exportButton) exportButton.disabled = true
       $('#dataset-analysis').innerHTML = '<p class="empty-assistant">Import a CSV file to see row counts, missing values, numeric summaries, and category frequencies.</p>'
       return
     }
@@ -856,7 +761,7 @@ async function loadDatasetsPage(selectedId?: number): Promise<void> {
   }
 }
 
-function navigate(section: string, datasetId?: number): void {
+async function navigate(section: string, datasetId?: number): Promise<void> {
   document.querySelectorAll<HTMLElement>('.page-content').forEach((page) => { page.hidden = true })
   const page = $<HTMLElement>(`#${section}-page`)
   page.hidden = false
@@ -865,6 +770,9 @@ function navigate(section: string, datasetId?: number): void {
   document.querySelectorAll('.nav-link').forEach((link) => link.classList.toggle('active', link.getAttribute('data-section') === section))
   if (section === 'projects') projectsLoadPromise = loadProjectsPage()
   if (section === 'editor') {
+    await ensureEditorPage()
+    if (documentPaginationPending) scheduleDocumentPagination()
+    updateDocumentPageCount()
     projectsLoadPromise = loadProjectsPage()
     void loadDocumentsPage()
   }
@@ -881,8 +789,30 @@ function navigate(section: string, datasetId?: number): void {
     projectsLoadPromise = loadProjectsPage()
     void projectsLoadPromise.then(() => loadQuestionnaires())
   }
-  if (section === 'settings') renderSettings()
+  if (section === 'settings') renderSettingsPage(settingsPageContext)
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+async function ensureEditorPage(): Promise<void> {
+  if (editorPageInitialized) return
+  if (!editorPagePromise) {
+    const page = $<HTMLElement>('#editor-page')
+    page.setAttribute('aria-busy', 'true')
+    editorPagePromise = import('./pages/editor').then(({ mountEditorPage }) => {
+      mountEditorPage(page, icon)
+      page.setAttribute('aria-busy', 'false')
+      initializeEditorControls()
+      initializeDocumentSaveHandler()
+      editorPageInitialized = true
+      restoreLocalDraft()
+    }).catch((error: unknown) => {
+      page.setAttribute('aria-busy', 'false')
+      page.textContent = 'Could not load the document editor. Select the tab to retry.'
+      editorPagePromise = undefined
+      throw error
+    })
+  }
+  await editorPagePromise
 }
 
 document.querySelectorAll<HTMLAnchorElement>('.nav-link').forEach((link) => {
@@ -1101,23 +1031,12 @@ const renderQuestionnaire = (): void => {
   })
 }
 
-const renderSettings = (): void => {
-  const settings = readStoredValue<AppSettings>(STORAGE_KEYS.settings, defaultSettings)
-  const autoSave = document.querySelector<HTMLInputElement>('#setting-auto-save')
-  const compact = document.querySelector<HTMLInputElement>('#setting-compact')
-  if (autoSave) autoSave.checked = settings.autoSave
-  if (compact) compact.checked = settings.compactMode
-  document.body.classList.toggle('compact-layout', settings.compactMode)
-}
-
-const saveSettings = (): void => {
-  const settings: AppSettings = {
-    autoSave: document.querySelector<HTMLInputElement>('#setting-auto-save')?.checked ?? true,
-    compactMode: document.querySelector<HTMLInputElement>('#setting-compact')?.checked ?? false
-  }
-  writeStoredValue(STORAGE_KEYS.settings, settings)
-  document.body.classList.toggle('compact-layout', settings.compactMode)
-  showToast('Settings saved.')
+const settingsPageContext: SettingsPageContext = {
+  storageKey: STORAGE_KEYS.settings,
+  defaults: defaultSettings,
+  read: readStoredValue,
+  write: writeStoredValue,
+  toast: showToast
 }
 
 const readQuestionnaireForm = (): QuestionnaireItem[] => {
@@ -1142,6 +1061,18 @@ const validateQuestionnaireItems = (items: QuestionnaireItem[]): string | null =
     }
   }
   return null
+}
+
+function handleQuestionnaireSelection(value: string): void {
+  const questionnaireId = Number(value)
+  if (!Number.isInteger(questionnaireId) || questionnaireId < 1) {
+    selectQuestionnaire(null)
+    return
+  }
+  const selected = questionnaires.find((item) => item.id === questionnaireId)
+  if (!selected) return
+  selectQuestionnaire(selected)
+  void loadQuestionnaireResponses(selected.id)
 }
 
 const renderQuestionnaireSelect = (): void => {
@@ -1536,32 +1467,516 @@ function downloadFile(filename: string, content: string, contentType: string): v
   const link = document.createElement('a')
   link.href = url
   link.download = filename
+  link.style.position = 'fixed'
+  link.style.left = '-10000px'
+  document.body.append(link)
   link.click()
-  URL.revokeObjectURL(url)
+  window.setTimeout(() => {
+    link.remove()
+    URL.revokeObjectURL(url)
+  }, 1000)
 }
 
-async function readCsvFile(file: File): Promise<string> {
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer())
-  } catch {
-    throw new Error('CSV files must use valid UTF-8 encoding. Re-save the file as UTF-8 and retry.')
+const richTextPrefix = 'researchmate-rich-text-v1\n'
+const documentPageSizes = {
+  a4: { label: 'A4', width: 794, height: 1123 },
+  letter: { label: 'Letter', width: 816, height: 1056 },
+  legal: { label: 'Legal', width: 816, height: 1344 },
+  a3: { label: 'A3', width: 1123, height: 1587 },
+  a5: { label: 'A5', width: 559, height: 794 }
+} as const
+const allowedDocumentTags = new Set([
+  'A', 'B', 'BLOCKQUOTE', 'BR', 'CODE', 'DIV', 'EM', 'H1', 'H2', 'H3', 'H4',
+  'HR', 'I', 'LI', 'OL', 'P', 'PRE', 'S', 'SPAN', 'STRIKE', 'STRONG', 'SUB',
+  'SUP', 'U', 'UL'
+])
+const dangerousDocumentTags = new Set(['IFRAME', 'OBJECT', 'SCRIPT', 'STYLE', 'SVG', 'TEMPLATE'])
+
+let savedDocumentRange: Range | null = null
+
+function sanitizeDocumentHtml(value: string): string {
+  const parsed = new DOMParser().parseFromString(value, 'text/html')
+  const sanitizeChildren = (parent: ParentNode): void => {
+    Array.from(parent.childNodes).forEach((node) => {
+      if (!(node instanceof Element)) return
+      if (!allowedDocumentTags.has(node.tagName)) {
+        if (dangerousDocumentTags.has(node.tagName)) {
+          node.remove()
+          return
+        }
+        sanitizeChildren(node)
+        node.replaceWith(...Array.from(node.childNodes))
+        return
+      }
+
+      const element = node as HTMLElement
+      const style = element.style
+      const color = style.color
+      const backgroundColor = style.backgroundColor
+      const fontSize = style.fontSize
+      const fontFamily = style.fontFamily.replace(/["']/g, '').trim()
+      const textAlign = style.textAlign
+      const href = node.tagName === 'A' ? node.getAttribute('href') : null
+      Array.from(node.attributes).forEach((attribute) => node.removeAttribute(attribute.name))
+      if (color && CSS.supports('color', color)) element.style.color = color
+      if (backgroundColor && CSS.supports('color', backgroundColor)) element.style.backgroundColor = backgroundColor
+      if (/^(8|9|[1-6]\d|7[0-2])px$/.test(fontSize)) element.style.fontSize = fontSize
+      if (/^(Aptos|Arial|Calibri|Georgia|Times New Roman|Verdana)$/i.test(fontFamily)) element.style.fontFamily = fontFamily
+      if (['left', 'center', 'right', 'justify'].includes(textAlign)) element.style.textAlign = textAlign
+      if (node.tagName === 'A') {
+        if (href) {
+          try {
+            const link = new URL(href, window.location.origin)
+            if (['http:', 'https:', 'mailto:'].includes(link.protocol)) element.setAttribute('href', href)
+          } catch {
+            // Invalid links are omitted from saved document content.
+          }
+        }
+      }
+      sanitizeChildren(node)
+    })
   }
+  sanitizeChildren(parsed.body)
+  return parsed.body.innerHTML
+}
+
+function documentPlainText(): string {
+  return ($<HTMLElement>('#document-editable').innerText || $<HTMLElement>('#document-editable').textContent || '')
+    .replace(/\u200b/g, '')
+}
+
+function serializedDocumentContent(): string {
+  const content = Array.from(document.querySelectorAll<HTMLElement>('.document-page-content'))
+    .map((page) => page.innerHTML)
+    .join('')
+  return `${richTextPrefix}${sanitizeDocumentHtml(content)}`
+}
+
+function createDocumentPage(): HTMLElement {
+  const page = document.createElement('div')
+  page.className = 'document-page'
+  const content = document.createElement('div')
+  content.className = 'document-page-content'
+  content.dataset.placeholder = 'Start writing your document…'
+  page.append(content)
+  return page
+}
+
+function documentPageContents(): HTMLElement[] {
+  return Array.from($<HTMLElement>('#document-editable').querySelectorAll<HTMLElement>('.document-page-content'))
+}
+
+function normalizeDocumentPageContent(content: HTMLElement): void {
+  Array.from(content.childNodes).forEach((node) => {
+    if (node.nodeType !== Node.TEXT_NODE || !node.textContent) return
+    const lines = node.textContent.split('\n')
+    if (lines.length === 1) {
+      const paragraph = document.createElement('div')
+      paragraph.append(node)
+      node.replaceWith(paragraph)
+      return
+    }
+
+    const selection = window.getSelection()
+    const anchorOffset = selection?.anchorNode === node ? selection.anchorOffset : null
+    const focusOffset = selection?.focusNode === node ? selection.focusOffset : null
+    const textNode = node as Text
+    const marker = document.createComment('')
+    node.replaceWith(marker)
+    textNode.textContent = lines[0]
+    const fragment = document.createDocumentFragment()
+    const lineNodes: Text[] = [textNode]
+    lines.forEach((line, index) => {
+      if (index === 0) return
+      const paragraph = document.createElement('div')
+      const text = document.createTextNode(line)
+      lineNodes.push(text)
+      if (line) paragraph.append(text)
+      else {
+        paragraph.append(text, document.createElement('br'))
+      }
+      fragment.append(paragraph)
+    })
+    const firstParagraph = document.createElement('div')
+    firstParagraph.append(textNode)
+    if (!lines[0]) firstParagraph.append(document.createElement('br'))
+    fragment.insertBefore(firstParagraph, fragment.firstChild)
+    marker.replaceWith(fragment)
+
+    const restoreOffset = (offset: number | null): { node: Text; offset: number } | null => {
+      if (offset === null) return null
+      let remaining = offset
+      for (let index = 0; index < lineNodes.length; index += 1) {
+        const lineNode = lineNodes[index]
+        if (remaining <= lineNode.length || index === lineNodes.length - 1) {
+          return { node: lineNode, offset: Math.min(remaining, lineNode.length) }
+        }
+        remaining -= lineNode.length + 1
+      }
+      return null
+    }
+    const anchor = restoreOffset(anchorOffset)
+    const focus = restoreOffset(focusOffset)
+    if (anchor && focus && selection) {
+      selection.setBaseAndExtent(anchor.node, anchor.offset, focus.node, focus.offset)
+    }
+  })
+}
+
+function findPageOverflowSplit(block: HTMLElement, pageContent: HTMLElement): DocumentFragment | null {
+  const pageBottom = pageContent.getBoundingClientRect().bottom
+  const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
+  let lastVisibleNode: Text | null = null
+  let lastVisibleOffset = 0
+  let splitNode: Text | null = null
+  let splitOffset = 0
+  let current = walker.nextNode()
+
+  while (current) {
+    const textNode = current as Text
+    const textLength = textNode.length
+    let low = 0
+    let high = textLength - 1
+    let visibleEnd = -1
+    while (low <= high) {
+      const middle = Math.floor((low + high) / 2)
+      const range = document.createRange()
+      range.setStart(textNode, middle)
+      range.setEnd(textNode, middle + 1)
+      if (range.getBoundingClientRect().bottom <= pageBottom + 1) {
+        visibleEnd = middle
+        low = middle + 1
+      } else {
+        high = middle - 1
+      }
+    }
+
+    if (visibleEnd >= 0) {
+      lastVisibleNode = textNode
+      lastVisibleOffset = visibleEnd + 1
+    }
+    if (visibleEnd < textLength - 1) {
+      if (lastVisibleNode) {
+        splitNode = lastVisibleNode
+        splitOffset = lastVisibleOffset
+        const visibleText = splitNode.textContent ?? ''
+        const whitespace = visibleText.lastIndexOf(' ', Math.max(0, splitOffset - 1))
+        if (whitespace > 0) splitOffset = whitespace + 1
+      }
+      break
+    }
+    current = walker.nextNode()
+  }
+
+  if (!splitNode || splitOffset <= 0) return null
+  const split = document.createRange()
+  split.setStart(splitNode, splitOffset)
+  split.setEndAfter(block)
+  const preview = split.cloneContents()
+  if (!preview.textContent?.trim()) return null
+  const remainder = split.extractContents()
+  const continuation = block.cloneNode(false) as HTMLElement
+  continuation.append(remainder)
+  const fragment = document.createDocumentFragment()
+  fragment.append(continuation)
+  return fragment
+}
+
+async function paginateDocument(version: number): Promise<void> {
+  const editor = $<HTMLElement>('#document-editable')
+  if (!editor.getClientRects().length) {
+    documentPaginationPending = true
+    return
+  }
+  if (version !== documentPaginationVersion) return
+
+  let operationsSinceYield = 0
+  const shouldStopAfterYield = async (): Promise<boolean> => {
+    operationsSinceYield += 1
+    if (version !== documentPaginationVersion) return true
+    if (operationsSinceYield < 4) return false
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0))
+    operationsSinceYield = 0
+    return version !== documentPaginationVersion
+  }
+
+  let pages = Array.from(editor.querySelectorAll<HTMLElement>('.document-page'))
+  if (!pages.length) {
+    const page = createDocumentPage()
+    editor.append(page)
+    pages = [page]
+  }
+  for (const page of pages) {
+    normalizeDocumentPageContent(page.querySelector<HTMLElement>('.document-page-content')!)
+    if (await shouldStopAfterYield()) return
+  }
+
+  let pageIndex = 0
+  while (pageIndex < pages.length) {
+    const page = pages[pageIndex]
+    const content = page.querySelector<HTMLElement>('.document-page-content')!
+    let nextContent = pages[pageIndex + 1]?.querySelector<HTMLElement>('.document-page-content')
+
+    while (content.scrollHeight > content.clientHeight + 1) {
+      if (!nextContent) {
+        const nextPage = createDocumentPage()
+        editor.append(nextPage)
+        pages.push(nextPage)
+        nextContent = nextPage.querySelector<HTMLElement>('.document-page-content')!
+      }
+
+      const blocks = Array.from(content.children)
+      if (blocks.length > 1) {
+        nextContent.prepend(blocks[blocks.length - 1])
+        if (await shouldStopAfterYield()) return
+        continue
+      }
+      if (blocks.length === 1) {
+        const continuation = findPageOverflowSplit(blocks[0] as HTMLElement, content)
+        if (continuation) {
+          nextContent.prepend(continuation)
+          if (await shouldStopAfterYield()) return
+          continue
+        }
+      }
+      break
+    }
+
+    if (nextContent) {
+      while (nextContent.firstChild) {
+        const candidate = nextContent.firstChild
+        content.append(candidate)
+        if (content.scrollHeight > content.clientHeight + 1) {
+          nextContent.prepend(candidate)
+          break
+        }
+        if (await shouldStopAfterYield()) return
+      }
+    }
+
+    pageIndex += 1
+    if (await shouldStopAfterYield()) return
+  }
+
+  while (pages.length > 1) {
+    const lastPage = pages[pages.length - 1]
+    const lastContent = lastPage.querySelector<HTMLElement>('.document-page-content')!
+    if (lastContent.childNodes.length) break
+    lastPage.remove()
+    pages.pop()
+  }
+  documentPaginationPending = false
+  updateDocumentPageCount()
+}
+
+function scheduleDocumentPagination(): void {
+  documentPaginationPending = true
+  const version = ++documentPaginationVersion
+  if (documentPaginationFrame !== undefined) window.clearTimeout(documentPaginationFrame)
+  documentPaginationFrame = window.setTimeout(() => {
+    documentPaginationFrame = undefined
+    void paginateDocument(version).catch((error: unknown) => {
+      console.error(error)
+    })
+  }, 0)
+}
+
+function applyDocumentPageSetup(): void {
+  const paper = $<HTMLElement>('#document-paper')
+  const pageSize = $<HTMLSelectElement>('#document-page-size').value as keyof typeof documentPageSizes
+  const orientation = $<HTMLSelectElement>('#document-orientation').value
+  const dimensions = documentPageSizes[pageSize] ?? documentPageSizes.a4
+  const width = orientation === 'landscape' ? dimensions.height : dimensions.width
+  const height = orientation === 'landscape' ? dimensions.width : dimensions.height
+  paper.dataset.pageSize = pageSize
+  paper.dataset.orientation = orientation
+  paper.dataset.margins = $<HTMLSelectElement>('#document-margins').value
+  paper.style.setProperty('--page-width', `${width}px`)
+  paper.style.setProperty('--page-height', `${height}px`)
+  const margin = paper.dataset.margins === 'narrow' ? 0.5 : 1
+  $<HTMLElement>('#document-editable').style.setProperty('--page-margin', `${margin}in`)
+  scheduleDocumentPagination()
+  updateDocumentPageCount()
+}
+
+function updateDocumentPageCount(): void {
+  const paper = $<HTMLElement>('#document-paper')
+  const editor = $<HTMLElement>('#document-editable')
+  const pageSize = documentPageSizes[paper.dataset.pageSize as keyof typeof documentPageSizes] ?? documentPageSizes.a4
+  const landscape = paper.dataset.orientation === 'landscape'
+  const pages = Array.from(editor.querySelectorAll<HTMLElement>('.document-page'))
+  const pageCount = Math.max(1, pages.length)
+  const selection = window.getSelection()
+  const currentPage = selection?.anchorNode
+    ? (selection.anchorNode instanceof Element ? selection.anchorNode : selection.anchorNode.parentElement)?.closest('.document-page')
+    : null
+  const pageNumber = currentPage ? Math.max(1, pages.indexOf(currentPage as HTMLElement) + 1) : 1
+  const orientation = landscape ? ' landscape' : ''
+  $('#document-page-indicator').textContent = `${pageSize.label}${orientation} · Page ${pageNumber} of ${pageCount}`
+}
+
+function countWords(text: string): number {
+  let words = 0
+  let inWord = false
+  for (const character of text) {
+    if (/\s/.test(character)) {
+      inWord = false
+    } else if (!inWord) {
+      words += 1
+      inWord = true
+    }
+  }
+  return words
+}
+
+function updateDocumentEditorMetrics(): void {
+  const text = documentPlainText()
+  const words = countWords(text)
+  const characters = text.length
+  $('#document-word-count').textContent = `${words} ${words === 1 ? 'word' : 'words'}`
+  $('#document-review-count').textContent = `${words} ${words === 1 ? 'word' : 'words'} · ${characters} ${characters === 1 ? 'character' : 'characters'}`
+}
+
+function syncDocumentEditor(): void {
+  scheduleDocumentPagination()
+  window.clearTimeout(documentMetricsTimer)
+  documentMetricsTimer = window.setTimeout(updateDocumentEditorMetrics, 150)
+}
+
+function setDocumentEditorContent(content: string): void {
+  const editor = $<HTMLElement>('#document-editable')
+  editor.innerHTML = ''
+  const page = createDocumentPage()
+  const pageContent = page.querySelector<HTMLElement>('.document-page-content')!
+  if (content.startsWith(richTextPrefix)) {
+    pageContent.innerHTML = sanitizeDocumentHtml(content.slice(richTextPrefix.length))
+  } else {
+    const paragraph = document.createElement('div')
+    if (content) paragraph.textContent = content.replace(/\r\n?/g, '\n')
+    else paragraph.append(document.createElement('br'))
+    pageContent.append(paragraph)
+  }
+  editor.append(page)
+  syncDocumentEditor()
+}
+
+function documentSelectionRange(): Range | null {
+  const editor = $<HTMLElement>('#document-editable')
+  const selection = window.getSelection()
+  if (selection?.rangeCount && editor.contains(selection.anchorNode)) return selection.getRangeAt(0).cloneRange()
+  if (savedDocumentRange && editor.contains(savedDocumentRange.startContainer)) return savedDocumentRange.cloneRange()
+  return null
+}
+
+function restoreDocumentSelection(): Range | null {
+  const range = documentSelectionRange()
+  if (range) {
+    const anchor = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement
+    anchor?.closest<HTMLElement>('.document-page-content')?.focus()
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    savedDocumentRange = range.cloneRange()
+  } else {
+    documentPageContents()[0]?.focus()
+  }
+  return range
+}
+
+function applyInlineDocumentStyle(property: 'color' | 'backgroundColor' | 'fontFamily' | 'fontSize', value: string): void {
+  const editor = $<HTMLElement>('#document-editable')
+  const range = restoreDocumentSelection()
+  if (!range) return
+  const span = document.createElement('span')
+  span.style[property] = value
+  if (range.collapsed) {
+    const marker = document.createTextNode('\u200b')
+    span.append(marker)
+    range.insertNode(span)
+    const caret = document.createRange()
+    caret.setStart(marker, 1)
+    caret.collapse(true)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(caret)
+  } else {
+    span.append(range.extractContents())
+    range.insertNode(span)
+    const selected = document.createRange()
+    selected.selectNodeContents(span)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(selected)
+  }
+  savedDocumentRange = documentSelectionRange()
+  editor.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
 function insertAtDocumentCursor(text: string, inline = false): void {
-  const editor = $<HTMLTextAreaElement>('#document-content')
-  const start = editor.selectionStart
-  const end = editor.selectionEnd
+  const editor = $<HTMLElement>('#document-editable')
+  const range = restoreDocumentSelection() ?? document.createRange()
+  if (!range.startContainer || !editor.contains(range.startContainer)) {
+    range.selectNodeContents(editor)
+    range.collapse(false)
+  }
   let insertion = text
   if (inline) {
-    const previousCharacter = editor.value[start - 1] ?? ''
-    const nextCharacter = editor.value[end] ?? ''
-    if (previousCharacter && !/\s/.test(previousCharacter)) insertion = ` ${insertion}`
-    if (nextCharacter && !/\s/.test(nextCharacter)) insertion = `${insertion} `
+    const before = range.startContainer.textContent?.slice(0, range.startOffset).slice(-1) ?? ''
+    const after = range.endContainer.textContent?.slice(range.endOffset, range.endOffset + 1) ?? ''
+    if (before && !/\s/.test(before)) insertion = ` ${insertion}`
+    if (after && !/\s/.test(after)) insertion = `${insertion} `
   }
-  editor.setRangeText(insertion, start, end, 'end')
+  range.deleteContents()
+  const node = document.createTextNode(insertion)
+  range.insertNode(node)
+  range.setStartAfter(node)
+  range.collapse(true)
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+  savedDocumentRange = range.cloneRange()
   editor.focus()
   editor.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+function writingTextFragment(text: string): DocumentFragment {
+  const fragment = document.createDocumentFragment()
+  const appendText = (value: string): void => {
+    const span = document.createElement('span')
+    span.textContent = value
+    fragment.append(span)
+  }
+
+  text.replace(/\r\n?/g, '\n').split('\n').forEach((line, lineIndex) => {
+    if (lineIndex > 0) fragment.append(document.createElement('br'))
+    let remaining = line
+    while (remaining.length > 700) {
+      const lastSpace = remaining.lastIndexOf(' ', 700)
+      const boundary = lastSpace > 350 ? lastSpace + 1 : 700
+      appendText(remaining.slice(0, boundary))
+      remaining = remaining.slice(boundary)
+    }
+    if (remaining) appendText(remaining)
+  })
+
+  if (!fragment.lastChild) fragment.append(document.createTextNode(''))
+  return fragment
+}
+
+function insertWritingTextAtRange(range: Range, text: string): void {
+  range.deleteContents()
+  const fragment = writingTextFragment(text)
+  const lastNode = fragment.lastChild!
+  range.insertNode(fragment)
+  range.setStartAfter(lastNode)
+  range.collapse(true)
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+  savedDocumentRange = range.cloneRange()
+  documentEditable.focus()
+  documentEditable.dispatchEvent(new Event('input', { bubbles: true }))
+  scheduleDocumentPagination()
 }
 
 function insertDocumentCitation(): void {
@@ -1595,7 +2010,7 @@ function fillDocumentEditor(savedDocument: ResearchDocument): void {
   $<HTMLInputElement>('#document-id').value = String(savedDocument.id)
   $<HTMLInputElement>('#document-title').value = savedDocument.title
   $<HTMLSelectElement>('#document-project').value = savedDocument.projectId ? String(savedDocument.projectId) : ''
-  $<HTMLTextAreaElement>('#document-content').value = savedDocument.content
+  setDocumentEditorContent(savedDocument.content)
   $('#document-save-status').textContent = `Editing saved document · ${relativeDate(savedDocument.updatedAt)}`
   $('#document-title').focus()
 }
@@ -1604,7 +2019,7 @@ function saveLocalDraft(): void {
   const settings = readStoredValue<AppSettings>(STORAGE_KEYS.settings, defaultSettings)
   if (!settings.autoSave) return
   const title = $<HTMLInputElement>('#document-title').value
-  const content = $<HTMLTextAreaElement>('#document-content').value
+  const content = serializedDocumentContent()
   const projectId = $<HTMLSelectElement>('#document-project').value
   if (!title.trim() && !content.trim()) return
   const documentId = $<HTMLInputElement>('#document-id').value
@@ -1616,10 +2031,15 @@ function saveLocalDraft(): void {
 function restoreLocalDraft(): void {
   const settings = readStoredValue<AppSettings>(STORAGE_KEYS.settings, defaultSettings)
   if (!settings.autoSave) return
-  const draft = readStoredValue<LocalDraft | null>(STORAGE_KEYS.localDraft, null)
+  const draft = pendingLocalDraft ?? readStoredValue<LocalDraft | null>(STORAGE_KEYS.localDraft, null)
   if (!draft) return
+  if (!editorPageInitialized) {
+    pendingLocalDraft = draft
+    return
+  }
+  pendingLocalDraft = null
   $<HTMLInputElement>('#document-title').value = draft.title
-  $<HTMLTextAreaElement>('#document-content').value = draft.content
+  setDocumentEditorContent(draft.content)
   $<HTMLSelectElement>('#document-project').value = draft.projectId
   $<HTMLInputElement>('#document-id').value = draft.documentId
   $('#document-save-status').textContent = `Recovered local draft from ${relativeDate(draft.savedAt)}. Save document to store it in your database.`
@@ -1637,7 +2057,62 @@ function clearLocalDraft(): void {
 function startNewDocument(): void {
   $<HTMLFormElement>('#document-form').reset()
   $<HTMLInputElement>('#document-id').value = ''
+  savedDocumentRange = null
+  setDocumentEditorContent('')
+  applyDocumentPageSetup()
   $('#document-save-status').textContent = 'New draft'
+}
+
+function documentExportName(title: string, extension: string): string {
+  const safeTitle = title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').slice(0, 100) || 'research-draft'
+  return `${safeTitle}.${extension}`
+}
+
+function documentExportHtml(title: string, content: string, wordDocument = false): string {
+  const paper = $<HTMLElement>('#document-paper')
+  const pageSize = documentPageSizes[paper.dataset.pageSize as keyof typeof documentPageSizes] ?? documentPageSizes.a4
+  const orientation = paper.dataset.orientation === 'landscape' ? 'landscape' : 'portrait'
+  const margins = paper.dataset.margins === 'narrow' ? '0.5in' : '1in'
+  const wordNamespaces = wordDocument
+    ? ' xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"'
+    : ''
+  return `<!doctype html>
+<html${wordNamespaces} lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="ProgId" content="Word.Document">
+  <meta name="Generator" content="ResearchMate">
+  <meta name="Originator" content="ResearchMate">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    @page { size: ${pageSize.label} ${orientation}; margin: ${margins}; }
+    body { color: #202630; font-family: Aptos, Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.55; }
+    h1, h2, h3 { line-height: 1.2; page-break-after: avoid; }
+    blockquote { margin-left: 1em; padding-left: 1em; border-left: 3px solid #b6c8d9; color: #586575; }
+    img { max-width: 100%; }
+  </style>
+</head>
+<body>
+  <main>${content || '<p></p>'}</main>
+</body>
+</html>`
+}
+
+function openDocumentPrintView(title: string, content: string): void {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    showToast('Allow pop-ups to open the print dialog and save a PDF.', true)
+    return
+  }
+  printWindow.document.open()
+  printWindow.document.write(documentExportHtml(title, content))
+  printWindow.document.close()
+  printWindow.document.title = title
+  window.setTimeout(() => {
+    if (printWindow.closed) return
+    printWindow.focus()
+    printWindow.print()
+  }, 300)
 }
 
 function exportDocument(): void {
@@ -1646,10 +2121,25 @@ function exportDocument(): void {
     showToast('Add a document title before exporting.', true)
     return
   }
-  const content = $<HTMLTextAreaElement>('#document-content').value
-  const filename = `${title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').slice(0, 100) || 'research-draft'}.txt`
-  downloadFile(filename, content, 'text/plain')
-  showToast('Document exported as a text file.')
+  const format = $<HTMLSelectElement>('#document-export-format').value
+  const content = serializedDocumentContent().slice(richTextPrefix.length)
+  if (format === 'pdf') {
+    openDocumentPrintView(title, content)
+    return
+  }
+  if (format === 'doc' || format === 'html') {
+    const wordDocument = format === 'doc'
+    const html = documentExportHtml(title, content, wordDocument)
+    downloadFile(
+      documentExportName(title, wordDocument ? 'doc' : 'html'),
+      html,
+      wordDocument ? 'application/msword' : 'text/html'
+    )
+    showToast(wordDocument ? 'Word-compatible document exported.' : 'Web page exported.')
+    return
+  }
+  downloadFile(documentExportName(title, 'txt'), documentPlainText(), 'text/plain')
+  showToast('Plain text document exported.')
 }
 
 const renderAssistantMessages = (): void => {
@@ -1780,75 +2270,342 @@ const generateAssistantAdvice = async (): Promise<void> => {
   }
 }
 
-$('#new-project-button').addEventListener('click', openProjectDialog)
-$('#projects-new-button').addEventListener('click', openProjectDialog)
-$('#quick-project').addEventListener('click', openProjectDialog)
-$('#quick-document').addEventListener('click', () => navigate('editor'))
-$('#quick-assistant').addEventListener('click', () => navigate('assistant'))
-$('#assistant-submit').addEventListener('click', () => void generateAssistantAdvice())
-$('#assistant-clear').addEventListener('click', () => {
-  $<HTMLTextAreaElement>('#assistant-prompt').value = ''
+bindDashboardPage({
+  newProject: openProjectDialog,
+  openEditor: () => { void navigate('editor') },
+  openAssistant: () => { void navigate('assistant') }
 })
-$('#assistant-new-conversation').addEventListener('click', () => {
-  activeAssistantConversationId = null
-  assistantMessages = []
-  $<HTMLSelectElement>('#assistant-conversations').value = ''
-  $<HTMLSelectElement>('#assistant-project').disabled = false
-  renderAssistantMessages()
+bindProjectsPage(openProjectDialog)
+bindAssistantPage({
+  submit: () => { void generateAssistantAdvice() },
+  clear: () => { $<HTMLTextAreaElement>('#assistant-prompt').value = '' },
+  newConversation: () => {
+    activeAssistantConversationId = null
+    assistantMessages = []
+    $<HTMLSelectElement>('#assistant-conversations').value = ''
+    $<HTMLSelectElement>('#assistant-project').disabled = false
+    renderAssistantMessages()
+  },
+  selectConversation: (value) => {
+    const conversationId = Number(value)
+    if (Number.isInteger(conversationId) && conversationId > 0) {
+      void openAssistantConversation(conversationId)
+      return
+    }
+    activeAssistantConversationId = null
+    assistantMessages = []
+    $<HTMLSelectElement>('#assistant-project').disabled = false
+    renderAssistantMessages()
+  }
 })
-$('#assistant-conversations').addEventListener('change', () => {
-  const conversationId = Number($<HTMLSelectElement>('#assistant-conversations').value)
-  if (Number.isInteger(conversationId) && conversationId > 0) {
-    void openAssistantConversation(conversationId)
+bindReferencesPage({
+  add: () => openReferenceForm(),
+  export: exportBibliography,
+  cancel: () => {
+    const form = $<HTMLFormElement>('#reference-form')
+    form.reset()
+    form.hidden = true
+  },
+  submit: (event) => { void saveReferenceForm(event) }
+})
+bindQuestionnairePage({
+  start: startQuestionnaire,
+  select: handleQuestionnaireSelection,
+  addQuestion,
+  generate: () => { void generateQuestionnaire() },
+  save: () => { void saveQuestionnaire() },
+  delete: () => { void deleteQuestionnaire() },
+  export: exportQuestionnaire,
+  preview: previewQuestionnaire,
+  exportResponses: exportQuestionnaireResponses,
+  analyzeResponses: () => { void analyzeQuestionnaireResponses() },
+  submitResponse: (form) => { void submitQuestionnaireResponse(form) }
+})
+bindSettingsPage(settingsPageContext)
+bindAnalysisPage({
+  request,
+  readCsvFile,
+  toast: showToast,
+  refreshProjectSelect,
+  loadDatasetsPage
+}, (value) => {
+    const datasetId = Number(value)
+    if (Number.isInteger(datasetId) && datasetId > 0) void loadDatasetDetail(datasetId)
+})
+  document.querySelector<HTMLButtonElement>('#export-analysis-csv')?.addEventListener('click', exportAnalysisCsv)
+
+function initializeEditorControls(): void {
+let writingAssistantCursor: Comment | null = null
+let writingAssistantSelection: Range | null = null
+bindEditorPage(startNewDocument, {
+  request,
+  captureCursor: () => {
+    writingAssistantCursor?.remove()
+    writingAssistantCursor = null
+    let range = documentSelectionRange()
+    if (!range) {
+      const lastPageContent = documentPageContents().at(-1)
+      if (lastPageContent) {
+        range = document.createRange()
+        range.selectNodeContents(lastPageContent)
+        range.collapse(false)
+      }
+    }
+    writingAssistantSelection = range && !range.collapsed ? range.cloneRange() : null
+    if (!range) return ''
+    const selectedText = writingAssistantSelection?.toString().trim() ?? ''
+    const insertionRange = range.cloneRange()
+    if (!insertionRange.collapsed) insertionRange.collapse(false)
+    if (writingAssistantSelection) {
+      savedDocumentRange = insertionRange.cloneRange()
+    } else {
+      writingAssistantCursor = document.createComment('writing-assistant-cursor')
+      insertionRange.insertNode(writingAssistantCursor)
+      const bookmarkRange = document.createRange()
+      bookmarkRange.setStartBefore(writingAssistantCursor)
+      bookmarkRange.collapse(true)
+      savedDocumentRange = bookmarkRange
+    }
+    return selectedText
+  },
+  getDocumentText: documentPlainText,
+  insertText: (text, replaceSelection) => {
+    let range = replaceSelection && writingAssistantSelection
+      ? writingAssistantSelection.cloneRange()
+      : documentSelectionRange()
+    if (writingAssistantCursor?.parentNode && documentEditable.contains(writingAssistantCursor)) {
+      range = document.createRange()
+      range.setStartBefore(writingAssistantCursor)
+      range.setEndAfter(writingAssistantCursor)
+    } else if (!replaceSelection && range && !range.collapsed) {
+      range.collapse(false)
+    }
+    if (!range) {
+      range = document.createRange()
+      range.selectNodeContents(documentEditable)
+      range.collapse(false)
+    }
+    const targetPage = (range.startContainer instanceof Element
+      ? range.startContainer
+      : range.startContainer.parentElement)?.closest<HTMLElement>('.document-page')
+    insertWritingTextAtRange(range, text)
+    writingAssistantCursor = null
+    writingAssistantSelection = null
+    targetPage?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    showToast('Suggestion inserted at the cursor.')
+  },
+  createSummaryDocument: async (text) => {
+    window.clearTimeout(localDraftTimer)
+    localDraftTimer = undefined
+    const sourceTitle = $<HTMLInputElement>('#document-title').value.trim() || 'Untitled document'
+    const projectValue = $<HTMLSelectElement>('#document-project').value
+    const summaryHtml = `<div>${escapeHtml(text).replace(/\r?\n/g, '<br>')}</div>`
+    const result = await request<{ document: ResearchDocument }>('/api/documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `Summary of ${sourceTitle}`.slice(0, 200),
+        content: `${richTextPrefix}${summaryHtml}`,
+        projectId: projectValue ? Number(projectValue) : null
+      })
+    })
+    await Promise.all([loadDocumentsPage(), loadDashboard()])
+    fillDocumentEditor(result.document)
+    $('#document-save-status').textContent = 'Summary saved as a new document.'
+    showToast('Summary saved as a new document.')
+  },
+  releaseCursor: () => {
+    if (writingAssistantCursor?.parentNode && documentEditable.contains(writingAssistantCursor)) {
+      const range = document.createRange()
+      range.setStartBefore(writingAssistantCursor)
+      range.collapse(true)
+      writingAssistantCursor.remove()
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+      savedDocumentRange = range.cloneRange()
+      documentEditable.focus()
+    }
+    writingAssistantCursor = null
+    writingAssistantSelection = null
+  }
+})
+const documentExportDialog = $<HTMLDialogElement>('#document-export-dialog')
+$('#export-document').addEventListener('click', () => {
+  const title = $<HTMLInputElement>('#document-title').value.trim()
+  if (!title) {
+    showToast('Add a document title before exporting.', true)
     return
   }
-  activeAssistantConversationId = null
-  assistantMessages = []
-  $<HTMLSelectElement>('#assistant-project').disabled = false
-  renderAssistantMessages()
+  $('#document-export-name').textContent = title
+  documentExportDialog.showModal()
 })
-$('#add-reference-button').addEventListener('click', () => openReferenceForm())
-$('#export-bibliography').addEventListener('click', exportBibliography)
-$('#cancel-reference').addEventListener('click', () => {
-  const form = $<HTMLFormElement>('#reference-form')
-  form.reset()
-  form.hidden = true
-})
-$('#new-questionnaire').addEventListener('click', startQuestionnaire)
-$('#questionnaire-select').addEventListener('change', () => {
-  const questionnaireId = Number(($<HTMLSelectElement>('#questionnaire-select')).value)
-  if (!Number.isInteger(questionnaireId) || questionnaireId < 1) {
-    selectQuestionnaire(null)
-    return
+$<HTMLSelectElement>('#document-export-format').addEventListener('change', (event) => {
+  const help: Record<string, string> = {
+    doc: 'Opens in Microsoft Word and other word processors.',
+    pdf: 'Opens the print dialog, where you can choose Save as PDF.',
+    html: 'Exports a formatted web page you can open in a browser.',
+    txt: 'Exports the document text without formatting.'
   }
-  const selected = questionnaires.find((item) => item.id === questionnaireId)
-  if (selected) {
-    selectQuestionnaire(selected)
-    void loadQuestionnaireResponses(selected.id)
-  }
+  const format = (event.currentTarget as HTMLSelectElement).value
+  const description = help[format]
+  if (description) $('#document-export-help').textContent = description
 })
-$('#add-question-button').addEventListener('click', addQuestion)
-$('#generate-questionnaire').addEventListener('click', () => void generateQuestionnaire())
-$('#save-questionnaire').addEventListener('click', () => void saveQuestionnaire())
-$('#delete-questionnaire').addEventListener('click', () => void deleteQuestionnaire())
-$('#export-questionnaire').addEventListener('click', exportQuestionnaire)
-$('#preview-questionnaire').addEventListener('click', previewQuestionnaire)
-$('#export-questionnaire-responses').addEventListener('click', exportQuestionnaireResponses)
-$('#analyze-questionnaire-responses').addEventListener('click', () => void analyzeQuestionnaireResponses())
-$('#questionnaire-preview').addEventListener('submit', (event) => {
-  const form = event.target
-  if (!(form instanceof HTMLFormElement) || form.id !== 'questionnaire-response-form') return
-  event.preventDefault()
-  void submitQuestionnaireResponse(form)
+$('#confirm-document-export').addEventListener('click', () => {
+  exportDocument()
+  documentExportDialog.close()
 })
-$('#save-settings').addEventListener('click', saveSettings)
-$('#new-document').addEventListener('click', startNewDocument)
-$('#export-document').addEventListener('click', exportDocument)
 $<HTMLSelectElement>('#document-reference-select').addEventListener('change', renderDocumentReferenceSelect)
 $('#insert-document-citation').addEventListener('click', insertDocumentCitation)
 $('#insert-document-bibliography').addEventListener('click', insertDocumentBibliography)
-let localDraftTimer: number | undefined
-const localDraftFields = ['#document-title', '#document-content']
+documentEditable = $<HTMLElement>('#document-editable')
+documentEditable.addEventListener('input', syncDocumentEditor)
+documentEditable.addEventListener('paste', (event) => {
+  event.preventDefault()
+  const clipboard = event.clipboardData
+  const html = clipboard?.getData('text/html')
+  const text = clipboard?.getData('text/plain') ?? ''
+  if (html) {
+    const safeHtml = sanitizeDocumentHtml(html)
+    if (safeHtml) document.execCommand('insertHTML', false, safeHtml)
+    else insertAtDocumentCursor(text)
+  } else {
+    insertAtDocumentCursor(text)
+  }
+  syncDocumentEditor()
+})
+documentEditable.addEventListener('drop', (event) => {
+  event.preventDefault()
+  const html = event.dataTransfer?.getData('text/html')
+  const text = event.dataTransfer?.getData('text/plain') ?? ''
+  if (html) {
+    const safeHtml = sanitizeDocumentHtml(html)
+    if (safeHtml) document.execCommand('insertHTML', false, safeHtml)
+    else insertAtDocumentCursor(text)
+  } else {
+    insertAtDocumentCursor(text)
+  }
+  syncDocumentEditor()
+})
+document.addEventListener('selectionchange', () => {
+  const selection = window.getSelection()
+  if (selection?.rangeCount && documentEditable.contains(selection.anchorNode)) {
+    savedDocumentRange = selection.getRangeAt(0).cloneRange()
+  }
+})
+document.querySelectorAll<HTMLButtonElement>('[data-editor-command]').forEach((button) => {
+  button.addEventListener('mousedown', (event) => event.preventDefault())
+  button.addEventListener('click', () => {
+    restoreDocumentSelection()
+    document.execCommand(button.dataset.editorCommand ?? '', false)
+    savedDocumentRange = documentSelectionRange()
+    syncDocumentEditor()
+  })
+})
+document.querySelectorAll<HTMLButtonElement>('[data-ribbon-tab]').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    const selected = tab.dataset.ribbonTab
+    document.querySelectorAll<HTMLButtonElement>('[data-ribbon-tab]').forEach((item) => {
+      const active = item === tab
+      item.classList.toggle('active', active)
+      item.setAttribute('aria-selected', String(active))
+    })
+    document.querySelectorAll<HTMLElement>('[data-ribbon-panel]').forEach((panel) => {
+      panel.hidden = panel.dataset.ribbonPanel !== selected
+    })
+  })
+})
+$<HTMLSelectElement>('#document-font').addEventListener('change', (event) => {
+  applyInlineDocumentStyle('fontFamily', (event.currentTarget as HTMLSelectElement).value)
+})
+$<HTMLSelectElement>('#document-font-size').addEventListener('change', (event) => {
+  applyInlineDocumentStyle('fontSize', `${(event.currentTarget as HTMLSelectElement).value}px`)
+})
+$<HTMLInputElement>('#document-text-color').addEventListener('input', (event) => {
+  const input = event.currentTarget as HTMLInputElement
+  input.closest<HTMLElement>('.word-color-tool')?.style.setProperty('--color-indicator', input.value)
+  applyInlineDocumentStyle('color', input.value)
+})
+$<HTMLInputElement>('#document-highlight-color').addEventListener('input', (event) => {
+  const input = event.currentTarget as HTMLInputElement
+  input.closest<HTMLElement>('.word-color-tool')?.style.setProperty('--color-indicator', input.value)
+  applyInlineDocumentStyle('backgroundColor', input.value)
+})
+$<HTMLSelectElement>('#document-style').addEventListener('change', (event) => {
+  restoreDocumentSelection()
+  document.execCommand('formatBlock', false, (event.currentTarget as HTMLSelectElement).value)
+  syncDocumentEditor()
+})
+$('#clear-document-formatting').addEventListener('mousedown', (event) => event.preventDefault())
+$('#clear-document-formatting').addEventListener('click', () => {
+  restoreDocumentSelection()
+  document.execCommand('removeFormat', false)
+  document.execCommand('formatBlock', false, 'p')
+  syncDocumentEditor()
+})
+$('#insert-document-link').addEventListener('mousedown', (event) => event.preventDefault())
+$('#insert-document-link').addEventListener('click', () => {
+  const rawUrl = $<HTMLInputElement>('#document-link-url').value.trim()
+  if (!rawUrl) {
+    showToast('Enter a link address first.', true)
+    return
+  }
+  let link: URL
+  try {
+    link = new URL(rawUrl)
+  } catch {
+    showToast('Enter a valid link address.', true)
+    return
+  }
+  if (!['http:', 'https:', 'mailto:'].includes(link.protocol)) {
+    showToast('Links must use HTTP, HTTPS, or email.', true)
+    return
+  }
+  const range = restoreDocumentSelection() ?? document.createRange()
+  if (range.collapsed) {
+    const anchor = document.createElement('a')
+    anchor.href = link.href
+    anchor.textContent = rawUrl
+    range.insertNode(anchor)
+    range.setStartAfter(anchor)
+    range.collapse(true)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  } else {
+    document.execCommand('createLink', false, link.href)
+  }
+  $<HTMLInputElement>('#document-link-url').value = ''
+  syncDocumentEditor()
+})
+$('#insert-document-rule').addEventListener('mousedown', (event) => event.preventDefault())
+$('#insert-document-rule').addEventListener('click', () => {
+  restoreDocumentSelection()
+  document.execCommand('insertHorizontalRule', false)
+  syncDocumentEditor()
+})
+$<HTMLSelectElement>('#document-page-size').addEventListener('change', applyDocumentPageSetup)
+$<HTMLSelectElement>('#document-orientation').addEventListener('change', applyDocumentPageSetup)
+$<HTMLSelectElement>('#document-margins').addEventListener('change', () => {
+  applyDocumentPageSetup()
+})
+applyDocumentPageSetup()
+$<HTMLInputElement>('#document-spellcheck').addEventListener('change', (event) => {
+  documentEditable.spellcheck = (event.currentTarget as HTMLInputElement).checked
+})
+$<HTMLInputElement>('#document-zoom').addEventListener('input', (event) => {
+  const zoom = Number((event.currentTarget as HTMLInputElement).value)
+  $('#document-zoom-value').textContent = `${zoom}%`
+  documentEditable.style.fontSize = `${11 * zoom / 100}pt`
+})
+$('#document-focus-mode').addEventListener('click', (event) => {
+  const button = event.currentTarget as HTMLButtonElement
+  const active = button.getAttribute('aria-pressed') !== 'true'
+  button.setAttribute('aria-pressed', String(active))
+  button.classList.toggle('active', active)
+  $('.word-workspace').classList.toggle('focus-mode', active)
+})
+const localDraftFields = ['#document-title', '#document-editable']
 localDraftFields.forEach((selector) => {
   document.querySelector<HTMLElement>(selector)?.addEventListener('input', () => {
     window.clearTimeout(localDraftTimer)
@@ -1859,73 +2616,15 @@ $('#document-project').addEventListener('change', () => {
   window.clearTimeout(localDraftTimer)
   localDraftTimer = window.setTimeout(saveLocalDraft, 500)
 })
+}
+
 $('#close-project-dialog').addEventListener('click', () => $<HTMLDialogElement>('#project-dialog').close())
 $('#cancel-project').addEventListener('click', () => $<HTMLDialogElement>('#project-dialog').close())
 $<HTMLDialogElement>('#project-dialog').addEventListener('click', (event) => {
   if (event.target === $<HTMLDialogElement>('#project-dialog')) $<HTMLDialogElement>('#project-dialog').close()
 })
 
-$('#dataset-select').addEventListener('change', () => {
-  const datasetId = Number(($<HTMLSelectElement>('#dataset-select')).value)
-  if (Number.isInteger(datasetId) && datasetId > 0) void loadDatasetDetail(datasetId)
-})
-
-$('#dataset-form').addEventListener('submit', async (event) => {
-  event.preventDefault()
-  const form = event.currentTarget as HTMLFormElement
-  const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!
-  const file = ($<HTMLInputElement>('#dataset-file')).files?.[0]
-  const status = $('#dataset-upload-status')
-  if (!file) {
-    status.textContent = 'Choose a CSV or Excel .xlsx file to import.'
-    return
-  }
-  const extension = file.name.split('.').pop()?.toLowerCase()
-  if (extension !== 'csv' && extension !== 'xlsx') {
-    status.textContent = 'Only CSV and Excel .xlsx files are supported.'
-    return
-  }
-  if (file.size > 800_000) {
-    status.textContent = 'Dataset files must be 800 KB or smaller.'
-    return
-  }
-  submit.disabled = true
-  status.textContent = `Reading and analyzing ${extension.toUpperCase()}…`
-  try {
-    const projectValue = ($<HTMLSelectElement>('#dataset-project')).value
-    const workbookBase64 = extension === 'xlsx'
-      ? await file.arrayBuffer().then((buffer) => {
-        const bytes = new Uint8Array(buffer)
-        let binary = ''
-        for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-          binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000))
-        }
-        return btoa(binary)
-      })
-      : undefined
-    const csv = extension === 'csv' ? await readCsvFile(file) : undefined
-    const result = await request<{ dataset: DatasetDetail }>('/api/datasets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sourceName: file.name,
-        ...(extension === 'csv' ? { csv } : { workbookBase64 }),
-        projectId: projectValue ? Number(projectValue) : null
-      })
-    })
-    status.textContent = `Imported ${result.dataset.rowCount} responses and ${result.dataset.columnCount} variables.`
-    showToast('Dataset imported and analyzed.')
-    form.reset()
-    refreshProjectSelect()
-    await loadDatasetsPage(result.dataset.id)
-  } catch (error) {
-    status.textContent = error instanceof Error ? error.message : 'Unable to import this CSV file.'
-  } finally {
-    submit.disabled = false
-  }
-})
-
-$('#reference-form').addEventListener('submit', async (event) => {
+async function saveReferenceForm(event: SubmitEvent): Promise<void> {
   event.preventDefault()
   const form = event.currentTarget as HTMLFormElement
   const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!
@@ -1956,7 +2655,7 @@ $('#reference-form').addEventListener('submit', async (event) => {
   } finally {
     submit.disabled = false
   }
-})
+}
 
 $('#project-form').addEventListener('submit', async (event) => {
   event.preventDefault()
@@ -1987,15 +2686,23 @@ $('#project-form').addEventListener('submit', async (event) => {
   }
 })
 
+function initializeDocumentSaveHandler(): void {
 $('#document-form').addEventListener('submit', async (event) => {
   event.preventDefault()
   const form = event.currentTarget as HTMLFormElement
-  const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!
+  syncDocumentEditor()
+  $<HTMLTextAreaElement>('#document-content').value = serializedDocumentContent()
+  const submit = $<HTMLButtonElement>('#save-document-button')
   const fields = new FormData(form)
   const projectValue = String(fields.get('projectId') ?? '')
+  const content = String(fields.get('content') ?? '')
+  if (content.length > 900_000) {
+    $('#document-save-status').textContent = 'This document is too long to save. Reduce the content to under 900,000 characters.'
+    return
+  }
   const payload = {
     title: String(fields.get('title') ?? ''),
-    content: String(fields.get('content') ?? ''),
+    content,
     projectId: projectValue ? Number(projectValue) : null
   }
   const documentId = $<HTMLInputElement>('#document-id').value
@@ -2021,10 +2728,11 @@ $('#document-form').addEventListener('submit', async (event) => {
     submit.disabled = false
   }
 })
+}
 
 $('#today-date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 void loadReferences()
-renderSettings()
+renderSettingsPage(settingsPageContext)
 refreshProjectSelect()
 void loadDashboard()
 void loadProjectsPage().then(restoreLocalDraft)
